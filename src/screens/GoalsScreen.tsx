@@ -1,96 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Card, Button, ProgressCircle } from '../components';
-import { colors, spacing, textStyles } from '../theme';
+import {
+  colors,
+  spacing,
+  textStyles,
+  getFloatingTabBarBottomPadding,
+  borderRadius,
+} from '../theme';
 import { Goal, Mission, Quiz } from '../types';
 
-const GoalsScreen: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'goals' | 'missions' | 'quizzes' | 'tutorials'>('goals');
+type GoalsTabKey = 'goals' | 'missions' | 'quizzes' | 'tutorials';
 
-  // Mock data
-  const goals: Goal[] = [
-    {
-      id: '1',
-      title: 'Improve Communication',
-      description: 'Daily family discussions for 15 minutes',
-      progress: 60,
-      target: 100,
-      deadline: '5 days left',
-      reward: '50 points',
-      isActive: true,
-    },
-    {
-      id: '2',
-      title: 'Complete Homework on Time',
-      description: 'Submit all assignments before deadline',
-      progress: 80,
-      target: 100,
-      deadline: '3 days left',
-      reward: '30 points',
-      isActive: true,
-    },
-  ];
+const MOCK_GOALS: Goal[] = [
+  {
+    id: '1',
+    title: 'Improve Communication',
+    description: 'Daily family discussions for 15 minutes',
+    progress: 60,
+    target: 100,
+    deadline: '5 days left',
+    reward: '50 points',
+    isActive: true,
+  },
+  {
+    id: '2',
+    title: 'Complete Homework on Time',
+    description: 'Submit all assignments before deadline',
+    progress: 80,
+    target: 100,
+    deadline: '3 days left',
+    reward: '30 points',
+    isActive: true,
+  },
+];
 
-  const missions: Mission[] = [
-    {
-      id: '1',
-      title: 'Share a Kind Act',
-      description: 'Document something kind you did today',
-      type: 'photo',
-      points: 20,
-      isCompleted: false,
-    },
-    {
-      id: '2',
-      title: 'Voice Journal',
-      description: 'Record your thoughts about today',
-      type: 'voice',
-      points: 15,
-      isCompleted: false,
-    },
-  ];
+const MOCK_MISSIONS: Mission[] = [
+  {
+    id: '1',
+    title: 'Share a Kind Act',
+    description: 'Document something kind you did today',
+    type: 'photo',
+    points: 20,
+    isCompleted: false,
+  },
+  {
+    id: '2',
+    title: 'Voice Journal',
+    description: 'Record your thoughts about today',
+    type: 'voice',
+    points: 15,
+    isCompleted: false,
+  },
+];
 
-  const quizzes: Quiz[] = [
-    {
-      id: '1',
-      title: 'Emotional Intelligence',
-      questions: 10,
-      completed: false,
-    },
-    {
-      id: '2',
-      title: 'Social Skills',
-      questions: 8,
-      completed: true,
-      score: 85,
-      time: '5 min',
-    },
-  ];
+const MOCK_QUIZZES: Quiz[] = [
+  {
+    id: '1',
+    title: 'Emotional Intelligence',
+    questions: 10,
+    completed: false,
+  },
+  {
+    id: '2',
+    title: 'Social Skills',
+    questions: 8,
+    completed: true,
+    score: 85,
+    time: '5 min',
+  },
+];
 
-  const tabs = [
-    { key: 'goals', label: 'Active Goals', icon: 'flag' },
-    { key: 'missions', label: 'Missions', icon: 'assignment' },
-    { key: 'quizzes', label: 'Quizzes', icon: 'quiz' },
-    { key: 'tutorials', label: 'Tutorials', icon: 'school' },
-  ];
+const TABS: { key: GoalsTabKey; label: string; icon: string }[] = [
+  { key: 'goals', label: 'Active Goals', icon: 'flag' },
+  { key: 'missions', label: 'Missions', icon: 'assignment' },
+  { key: 'quizzes', label: 'Quizzes', icon: 'quiz' },
+  { key: 'tutorials', label: 'Tutorials', icon: 'school' },
+];
 
-  const renderGoals = () => (
+const GoalsPanel = memo(function GoalsPanel() {
+  const onCreateGoal = useCallback(() => {
+    // Wire to create-goal flow
+  }, []);
+
+  return (
     <View>
-      <Button
-        title="+ Create New Goal"
-        variant="outline"
-        onPress={() => console.log('Create goal')}
-        style={styles.createButton}
-      />
-      {goals.map((goal) => (
+      <Button title="+ Create New Goal" variant="outline" onPress={onCreateGoal} style={styles.createButton} />
+      {MOCK_GOALS.map((goal) => (
         <Card key={goal.id} variant="elevated" style={styles.goalCard}>
           <View style={styles.goalHeader}>
             <Text style={styles.goalTitle}>{goal.title}</Text>
@@ -113,10 +117,12 @@ const GoalsScreen: React.FC = () => {
       ))}
     </View>
   );
+});
 
-  const renderMissions = () => (
+const MissionsPanel = memo(function MissionsPanel() {
+  return (
     <View>
-      {missions.map((mission) => (
+      {MOCK_MISSIONS.map((mission) => (
         <Card key={mission.id} variant="elevated" style={styles.missionCard}>
           <View style={styles.missionHeader}>
             <Text style={styles.missionTitle}>{mission.title}</Text>
@@ -125,18 +131,30 @@ const GoalsScreen: React.FC = () => {
           <Text style={styles.missionDescription}>{mission.description}</Text>
           <View style={styles.missionActions}>
             {mission.type === 'photo' && (
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel="Submit photo for mission"
+              >
                 <Icon name="camera-alt" size={20} color={colors.primary} />
                 <Text style={styles.actionText}>Photo</Text>
               </TouchableOpacity>
             )}
             {mission.type === 'voice' && (
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                accessibilityRole="button"
+                accessibilityLabel="Submit voice for mission"
+              >
                 <Icon name="mic" size={20} color={colors.primary} />
                 <Text style={styles.actionText}>Voice</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.actionButton, styles.textButton]}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.textButton]}
+              accessibilityRole="button"
+              accessibilityLabel="Submit text for mission"
+            >
               <Icon name="text-fields" size={20} color={colors.primary} />
               <Text style={styles.actionText}>Text</Text>
             </TouchableOpacity>
@@ -145,10 +163,16 @@ const GoalsScreen: React.FC = () => {
       ))}
     </View>
   );
+});
 
-  const renderQuizzes = () => (
+const QuizzesPanel = memo(function QuizzesPanel() {
+  const onQuizPress = useCallback(() => {
+    // Wire to quiz flow
+  }, []);
+
+  return (
     <View>
-      {quizzes.map((quiz) => (
+      {MOCK_QUIZZES.map((quiz) => (
         <Card key={quiz.id} variant="elevated" style={styles.quizCard}>
           <View style={styles.quizHeader}>
             <Text style={styles.quizTitle}>{quiz.title}</Text>
@@ -161,79 +185,83 @@ const GoalsScreen: React.FC = () => {
               <Text style={styles.quizQuestions}>{quiz.questions} questions</Text>
             )}
           </View>
-          {quiz.completed && (
+          {quiz.completed ? (
             <Text style={styles.quizTime}>Completed in {quiz.time}</Text>
-          )}
+          ) : null}
           <Button
             title={quiz.completed ? 'Retake Quiz' : 'Start Quiz'}
             variant={quiz.completed ? 'outline' : 'primary'}
-            onPress={() => console.log('Start quiz')}
+            onPress={onQuizPress}
           />
         </Card>
       ))}
     </View>
   );
+});
 
-  const renderTutorials = () => (
+const TutorialsPanel = memo(function TutorialsPanel() {
+  const onWatch = useCallback(() => {
+    // Wire to video / tutorial
+  }, []);
+
+  return (
     <View>
       <Card variant="elevated" style={styles.tutorialCard}>
         <Icon name="play-circle-filled" size={40} color={colors.primary} />
         <Text style={styles.tutorialTitle}>Understanding Emotions</Text>
         <Text style={styles.tutorialDuration}>15 min</Text>
-        <Button title="Watch" variant="outline" onPress={() => console.log('Watch tutorial')} />
+        <Button title="Watch" variant="outline" onPress={onWatch} />
       </Card>
     </View>
   );
+});
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'goals':
-        return renderGoals();
-      case 'missions':
-        return renderMissions();
-      case 'quizzes':
-        return renderQuizzes();
-      case 'tutorials':
-        return renderTutorials();
-      default:
-        return renderGoals();
-    }
-  };
+const GoalsScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const scrollBottomPad = useMemo(
+    () => getFloatingTabBarBottomPadding(insets.bottom),
+    [insets.bottom]
+  );
+  const [activeTab, setActiveTab] = useState<GoalsTabKey>('goals');
+
+  const onTabPress = useCallback((key: GoalsTabKey) => {
+    setActiveTab(key);
+  }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Tab Navigation */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+      >
         <View style={styles.tabContainer}>
-          {tabs.map((tab) => (
+          {TABS.map((tab) => (
             <TouchableOpacity
               key={tab.key}
-              style={[
-                styles.tabButton,
-                activeTab === tab.key && styles.tabButtonActive,
-              ]}
-              onPress={() => setActiveTab(tab.key as any)}
+              style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}
+              onPress={() => onTabPress(tab.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: activeTab === tab.key }}
+              accessibilityLabel={tab.label}
             >
               <Icon
                 name={tab.icon}
                 size={20}
-                color={activeTab === tab.key ? colors.primary : colors.textSecondary}
+                color={activeTab === tab.key ? colors.ink : colors.textSecondary}
               />
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab.key && styles.tabTextActive,
-                ]}
-              >
+              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Content */}
         <View style={styles.contentContainer}>
-          {renderContent()}
+          {activeTab === 'goals' ? <GoalsPanel /> : null}
+          {activeTab === 'missions' ? <MissionsPanel /> : null}
+          {activeTab === 'quizzes' ? <QuizzesPanel /> : null}
+          {activeTab === 'tutorials' ? <TutorialsPanel /> : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -247,14 +275,16 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: borderRadius.xl,
     padding: spacing.xs,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   tabButton: {
     flex: 1,
@@ -263,10 +293,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
-    borderRadius: 8,
+    borderRadius: borderRadius.large,
   },
   tabButtonActive: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.lavenderSoft,
   },
   tabText: {
     ...textStyles.caption,
@@ -274,17 +304,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.primary,
+    color: colors.ink,
     fontWeight: '600',
   },
   contentContainer: {
     flex: 1,
   },
   createButton: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   goalCard: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   goalHeader: {
     flexDirection: 'row',
@@ -299,6 +329,7 @@ const styles = StyleSheet.create({
   goalDescription: {
     ...textStyles.bodyMedium,
     marginBottom: spacing.md,
+    lineHeight: 18,
   },
   goalFooter: {
     flexDirection: 'row',
@@ -323,7 +354,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   missionCard: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   missionHeader: {
     flexDirection: 'row',
@@ -343,6 +374,7 @@ const styles = StyleSheet.create({
   missionDescription: {
     ...textStyles.bodyMedium,
     marginBottom: spacing.md,
+    lineHeight: 18,
   },
   missionActions: {
     flexDirection: 'row',
@@ -361,7 +393,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   quizCard: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   quizHeader: {
     flexDirection: 'row',

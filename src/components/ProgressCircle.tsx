@@ -1,6 +1,6 @@
-import React from 'react';
-import { View, Text, StyleSheet, DimensionValue } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, TextStyle } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { colors } from '../theme';
 
 interface ProgressCircleProps {
@@ -10,10 +10,10 @@ interface ProgressCircleProps {
   color?: string;
   backgroundColor?: string;
   showPercentage?: boolean;
-  percentageStyle?: any;
+  percentageStyle?: TextStyle;
 }
 
-export const ProgressCircle: React.FC<ProgressCircleProps> = ({
+export const ProgressCircle = React.memo(function ProgressCircle({
   size = 80,
   progress = 0,
   strokeWidth = 8,
@@ -21,14 +21,22 @@ export const ProgressCircle: React.FC<ProgressCircleProps> = ({
   backgroundColor = colors.border,
   showPercentage = true,
   percentageStyle,
-}) => {
+}: ProgressCircleProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+  const sizeStyle = useMemo(
+    () => ({
+      width: size,
+      height: size,
+    }),
+    [size]
+  );
+
   return (
-    <View style={[styles.container, { width: size, height: size }]}>
+    <View style={[styles.container, sizeStyle]}>
       <Svg width={size} height={size} style={styles.svg}>
         {/* Background circle */}
         <Circle
@@ -64,7 +72,7 @@ export const ProgressCircle: React.FC<ProgressCircleProps> = ({
       )}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

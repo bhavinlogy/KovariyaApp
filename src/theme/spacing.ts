@@ -1,3 +1,5 @@
+import { colors } from './colors';
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -8,45 +10,47 @@ export const spacing = {
   xxxl: 64,
 };
 
+/** Pill-heavy UI: cards, hero sections, primary buttons */
 export const borderRadius = {
-  small: 8,
-  medium: 12,
-  large: 16,
-  xl: 24,
+  small: 12,
+  medium: 16,
+  large: 22,
+  xl: 28,
+  xxl: 32,
   full: 9999,
 };
 
 export const shadows = {
-  small: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+  /** Hairline + whisper shadow — premium, not heavy */
+  soft: {
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+
+  small: {
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
     elevation: 2,
   },
-  
+
   medium: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 20,
+    elevation: 5,
   },
-  
+
   large: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
+    shadowColor: colors.ink,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 28,
     elevation: 8,
   },
 };

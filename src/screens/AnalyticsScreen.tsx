@@ -1,227 +1,219 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
-  Dimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Card, Button } from '../components';
-import { colors, spacing, textStyles } from '../theme';
+import { colors, spacing, textStyles, getFloatingTabBarBottomPadding } from '../theme';
 import { AnalyticsData } from '../types';
 
-const { width } = Dimensions.get('window');
+const MOCK_ANALYTICS: AnalyticsData = {
+  weeklyTrends: {
+    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    datasets: [
+      {
+        label: 'Positive',
+        data: [7.2, 8.1, 6.8, 8.5, 7.9, 8.2, 8.5],
+        color: colors.growth,
+      },
+      {
+        label: 'Needs Work',
+        data: [2.8, 1.9, 3.2, 1.5, 2.1, 1.8, 1.5],
+        color: colors.error,
+      },
+    ],
+  },
+  behaviourBreakdown: [
+    { aspect: 'Communication', score: 8, change: 1.2 },
+    { aspect: 'Responsibility', score: 7, change: -0.5 },
+    { aspect: 'Kindness', score: 9, change: 2.1 },
+    { aspect: 'Honesty', score: 8, change: 0.8 },
+    { aspect: 'Respect', score: 7, change: -0.3 },
+  ],
+  scoreComparison: {
+    current: 8.5,
+    previous: 7.8,
+    average: 7.2,
+  },
+  goalProgress: {
+    completed: 8,
+    total: 12,
+    onTrack: true,
+  },
+};
 
 const AnalyticsScreen: React.FC = () => {
-  // Mock analytics data
-  const analyticsData: AnalyticsData = {
-    weeklyTrends: {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      datasets: [
-        {
-          label: 'Positive',
-          data: [7.2, 8.1, 6.8, 8.5, 7.9, 8.2, 8.5],
-          color: colors.growth,
-        },
-        {
-          label: 'Needs Work',
-          data: [2.8, 1.9, 3.2, 1.5, 2.1, 1.8, 1.5],
-          color: colors.error,
-        },
-      ],
-    },
-    behaviourBreakdown: [
-      { aspect: 'Communication', score: 8, change: 1.2 },
-      { aspect: 'Responsibility', score: 7, change: -0.5 },
-      { aspect: 'Kindness', score: 9, change: 2.1 },
-      { aspect: 'Honesty', score: 8, change: 0.8 },
-      { aspect: 'Respect', score: 7, change: -0.3 },
-    ],
-    scoreComparison: {
-      current: 8.5,
-      previous: 7.8,
-      average: 7.2,
-    },
-    goalProgress: {
-      completed: 8,
-      total: 12,
-      onTrack: true,
-    },
-  };
-
-  const renderWeeklyTrends = () => (
-    <Card variant="elevated" style={styles.chartCard}>
-      <Text style={styles.chartTitle}>Weekly Trends</Text>
-      <View style={styles.chartContainer}>
-        {analyticsData.weeklyTrends.labels.map((label, index) => (
-          <View key={index} style={styles.dayColumn}>
-            <View style={styles.barContainer}>
-              <View
-                style={[
-                  styles.bar,
-                  {
-                    height: `${(analyticsData.weeklyTrends.datasets[0].data[index] / 10) * 100}%`,
-                    backgroundColor: colors.growth,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.bar,
-                  {
-                    height: `${(analyticsData.weeklyTrends.datasets[1].data[index] / 10) * 100}%`,
-                    backgroundColor: colors.error,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.dayLabel}>{label}</Text>
-          </View>
-        ))}
-      </View>
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: colors.growth }]} />
-          <Text style={styles.legendText}>Positive</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendColor, { backgroundColor: colors.error }]} />
-          <Text style={styles.legendText}>Needs Work</Text>
-        </View>
-      </View>
-    </Card>
+  const insets = useSafeAreaInsets();
+  const scrollBottomPad = useMemo(
+    () => getFloatingTabBarBottomPadding(insets.bottom),
+    [insets.bottom]
   );
+  const analyticsData = MOCK_ANALYTICS;
 
-  const renderBehaviourBreakdown = () => (
-    <Card variant="elevated" style={styles.breakdownCard}>
-      <Text style={styles.breakdownTitle}>Behaviour Breakdown</Text>
-      {analyticsData.behaviourBreakdown.map((item, index) => (
-        <View key={index} style={styles.breakdownRow}>
-          <Text style={styles.breakdownAspect}>{item.aspect}</Text>
-          <View style={styles.breakdownBars}>
-            <View style={styles.scoreBarContainer}>
-              <View
-                style={[
-                  styles.scoreBar,
-                  {
-                    width: `${(item.score / 10) * 100}%`,
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.breakdownScore}>{item.score}</Text>
-          </View>
-          <View style={styles.changeContainer}>
-            <Icon
-              name={item.change > 0 ? 'trending-up' : 'trending-down'}
-              size={16}
-              color={item.change > 0 ? colors.growth : colors.error}
-            />
-            <Text
-              style={[
-                styles.changeText,
-                { color: item.change > 0 ? colors.growth : colors.error },
-              ]}
-            >
-              {Math.abs(item.change)}
-            </Text>
-          </View>
-        </View>
-      ))}
-    </Card>
-  );
+  const onViewGoals = useCallback(() => {
+    // Wire to Goals tab or stack
+  }, []);
 
-  const renderScoreComparison = () => (
-    <Card variant="elevated" style={styles.comparisonCard}>
-      <Text style={styles.comparisonTitle}>Score Comparison</Text>
-      <View style={styles.comparisonMetrics}>
-        <View style={styles.metric}>
-          <Text style={styles.metricLabel}>Current</Text>
-          <Text style={styles.metricValue}>{analyticsData.scoreComparison.current}</Text>
-        </View>
-        <View style={styles.metric}>
-          <Text style={styles.metricLabel}>Previous</Text>
-          <Text style={styles.metricValue}>{analyticsData.scoreComparison.previous}</Text>
-        </View>
-        <View style={styles.metric}>
-          <Text style={styles.metricLabel}>Average</Text>
-          <Text style={styles.metricValue}>{analyticsData.scoreComparison.average}</Text>
-        </View>
-      </View>
-    </Card>
-  );
+  const onExportPdf = useCallback(() => {
+    // Wire to export
+  }, []);
 
-  const renderGoalProgress = () => (
-    <Card variant="elevated" style={styles.progressCard}>
-      <Text style={styles.progressTitle}>Goal Progress</Text>
-      <View style={styles.progressContent}>
-        <View style={styles.progressCircle}>
-          <Text style={styles.progressNumber}>
-            {analyticsData.goalProgress.completed}/{analyticsData.goalProgress.total}
-          </Text>
-          <Text style={styles.progressLabel}>Completed</Text>
-        </View>
-        <View style={styles.progressDetails}>
-          <Text style={styles.progressPercentage}>
-            {Math.round((analyticsData.goalProgress.completed / analyticsData.goalProgress.total) * 100)}%
-          </Text>
-          <Text style={styles.progressStatus}>
-            {analyticsData.goalProgress.onTrack ? 'On Track' : 'Behind Schedule'}
-          </Text>
-          <Button
-            title="View All Goals"
-            variant="outline"
-            size="small"
-            onPress={() => console.log('View goals')}
-          />
-        </View>
-      </View>
-    </Card>
-  );
+  const onShareData = useCallback(() => {
+    // Wire to share sheet
+  }, []);
+
+  const positiveDataset = analyticsData.weeklyTrends.datasets[0];
+  const needsWorkDataset = analyticsData.weeklyTrends.datasets[1];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Date Range Selector */}
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+      >
         <Card variant="elevated" style={styles.dateCard}>
-          <TouchableOpacity style={styles.dateSelector}>
+          <TouchableOpacity
+            style={styles.dateSelector}
+            accessibilityRole="button"
+            accessibilityLabel="Select date range"
+          >
             <Text style={styles.dateText}>Last 7 Days</Text>
             <Icon name="arrow-drop-down" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
         </Card>
 
-        {/* Weekly Trends Chart */}
-        {renderWeeklyTrends()}
+        <Card variant="elevated" style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Weekly Trends</Text>
+          <View style={styles.chartContainer}>
+            {analyticsData.weeklyTrends.labels.map((label, index) => (
+              <View key={label} style={styles.dayColumn}>
+                <View style={styles.barContainer}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: `${(positiveDataset.data[index] / 10) * 100}%`,
+                        backgroundColor: colors.growth,
+                      },
+                    ]}
+                  />
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height: `${(needsWorkDataset.data[index] / 10) * 100}%`,
+                        backgroundColor: colors.error,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.dayLabel}>{label}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, styles.legendColorGrowth]} />
+              <Text style={styles.legendText}>Positive</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, styles.legendColorError]} />
+              <Text style={styles.legendText}>Needs Work</Text>
+            </View>
+          </View>
+        </Card>
 
-        {/* Behaviour Breakdown */}
-        {renderBehaviourBreakdown()}
+        <Card variant="elevated" style={styles.breakdownCard}>
+          <Text style={styles.breakdownTitle}>Behaviour Breakdown</Text>
+          {analyticsData.behaviourBreakdown.map((item) => (
+            <View key={item.aspect} style={styles.breakdownRow}>
+              <Text style={styles.breakdownAspect}>{item.aspect}</Text>
+              <View style={styles.breakdownBars}>
+                <View style={styles.scoreBarContainer}>
+                  <View
+                    style={[
+                      styles.scoreBar,
+                      {
+                        width: `${(item.score / 10) * 100}%`,
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.breakdownScore}>{item.score}</Text>
+              </View>
+              <View style={styles.changeContainer}>
+                <Icon
+                  name={item.change > 0 ? 'trending-up' : 'trending-down'}
+                  size={16}
+                  color={item.change > 0 ? colors.growth : colors.error}
+                />
+                <Text
+                  style={[
+                    styles.changeText,
+                    { color: item.change > 0 ? colors.growth : colors.error },
+                  ]}
+                >
+                  {Math.abs(item.change)}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </Card>
 
-        {/* Score Comparison */}
-        {renderScoreComparison()}
+        <Card variant="elevated" style={styles.comparisonCard}>
+          <Text style={styles.comparisonTitle}>Score Comparison</Text>
+          <View style={styles.comparisonMetrics}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Current</Text>
+              <Text style={styles.metricValue}>{analyticsData.scoreComparison.current}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Previous</Text>
+              <Text style={styles.metricValue}>{analyticsData.scoreComparison.previous}</Text>
+            </View>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Average</Text>
+              <Text style={styles.metricValue}>{analyticsData.scoreComparison.average}</Text>
+            </View>
+          </View>
+        </Card>
 
-        {/* Goal Progress */}
-        {renderGoalProgress()}
+        <Card variant="elevated" style={styles.progressCard}>
+          <Text style={styles.progressTitle}>Goal Progress</Text>
+          <View style={styles.progressContent}>
+            <View style={styles.progressCircle}>
+              <Text style={styles.progressNumber}>
+                {analyticsData.goalProgress.completed}/{analyticsData.goalProgress.total}
+              </Text>
+              <Text style={styles.progressLabel}>Completed</Text>
+            </View>
+            <View style={styles.progressDetails}>
+              <Text style={styles.progressPercentage}>
+                {Math.round(
+                  (analyticsData.goalProgress.completed / analyticsData.goalProgress.total) * 100
+                )}
+                %
+              </Text>
+              <Text style={styles.progressStatus}>
+                {analyticsData.goalProgress.onTrack ? 'On Track' : 'Behind Schedule'}
+              </Text>
+              <Button title="View All Goals" variant="outline" size="small" onPress={onViewGoals} />
+            </View>
+          </View>
+        </Card>
 
-        {/* Export Options */}
         <Card variant="elevated" style={styles.exportCard}>
           <Text style={styles.exportTitle}>Export Data</Text>
           <View style={styles.exportOptions}>
-            <Button
-              title="PDF Report"
-              variant="outline"
-              size="small"
-              onPress={() => console.log('Export PDF')}
-            />
-            <Button
-              title="Share Data"
-              variant="outline"
-              size="small"
-              onPress={() => console.log('Share data')}
-            />
+            <Button title="PDF Report" variant="outline" size="small" onPress={onExportPdf} />
+            <Button title="Share Data" variant="outline" size="small" onPress={onShareData} />
           </View>
         </Card>
       </ScrollView>
@@ -236,10 +228,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing.sm,
   },
   dateCard: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   dateSelector: {
     flexDirection: 'row',
@@ -252,7 +244,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chartCard: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   chartTitle: {
     ...textStyles.headingMedium,
@@ -264,6 +256,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     height: 150,
     marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   dayColumn: {
     flex: 1,
@@ -300,11 +293,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginRight: spacing.xs,
   },
+  legendColorGrowth: {
+    backgroundColor: colors.growth,
+  },
+  legendColorError: {
+    backgroundColor: colors.error,
+  },
   legendText: {
     ...textStyles.caption,
   },
   breakdownCard: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   breakdownTitle: {
     ...textStyles.headingMedium,
@@ -353,7 +352,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   comparisonCard: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   comparisonTitle: {
     ...textStyles.headingMedium,
@@ -375,7 +374,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   progressCard: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   progressTitle: {
     ...textStyles.headingMedium,

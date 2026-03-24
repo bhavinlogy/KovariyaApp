@@ -1,6 +1,10 @@
 export { colors, type ColorKeys } from './colors';
 export { typography, textStyles } from './typography';
 export { spacing, borderRadius, shadows } from './spacing';
+export {
+  FLOATING_TAB_BAR_VISUAL_HEIGHT,
+  getFloatingTabBarBottomPadding,
+} from './layout';
 
 import { colors } from './colors';
 import { typography } from './typography';

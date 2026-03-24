@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, ViewStyle, StyleSheet } from 'react-native';
-import { spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows, colors } from '../theme';
 
 interface CardProps {
   children: React.ReactNode;
@@ -9,41 +9,34 @@ interface CardProps {
   padding?: number;
 }
 
-export const Card: React.FC<CardProps> = ({
+export const Card = React.memo(function Card({
   children,
   style,
   variant = 'default',
   padding = spacing.md,
-}) => {
-  const getCardStyle = (): ViewStyle => {
+}: CardProps) {
+  const variantStyle = useMemo((): ViewStyle => {
     const baseStyle: ViewStyle = {
-      backgroundColor: '#FFFFFF',
-      borderRadius: borderRadius.medium,
+      backgroundColor: colors.surface,
+      borderRadius: borderRadius.xl,
       padding,
     };
 
     switch (variant) {
       case 'elevated':
-        return {
-          ...baseStyle,
-          ...shadows.medium,
-        };
+        return { ...baseStyle, ...shadows.soft };
       case 'outlined':
-        return {
-          ...baseStyle,
-          borderWidth: 1,
-          borderColor: '#E5E7EB',
-        };
+        return { ...baseStyle, borderWidth: 1, borderColor: colors.border };
       default:
         return baseStyle;
     }
-  };
+  }, [variant, padding]);
 
-  return <View style={[styles.card, getCardStyle(), style]}>{children}</View>;
-};
+  return <View style={[styles.card, variantStyle, style]}>{children}</View>;
+});
 
 const styles = StyleSheet.create({
   card: {
-    marginVertical: spacing.xs,
+    marginVertical: spacing.sm,
   },
 });

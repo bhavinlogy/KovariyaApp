@@ -1,10 +1,13 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import React, { useMemo } from 'react';
+import {
+  createBottomTabNavigator,
+  type BottomTabBarProps,
+  type BottomTabNavigationOptions,
+} from '@react-navigation/bottom-tabs';
+import { StyleSheet } from 'react-native';
 import { colors } from '../theme';
+import { FloatingTabBar } from './FloatingTabBar';
 
-// Import screens (we'll create these next)
 import DashboardScreen from '../screens/DashboardScreen';
 import RatingScreen from '../screens/RatingScreen';
 import GoalsScreen from '../screens/GoalsScreen';
@@ -12,64 +15,63 @@ import AnalyticsScreen from '../screens/AnalyticsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+
+const stylesTitle = StyleSheet.create({
+  headerTitle: {
+    fontWeight: '600',
+    fontSize: 18,
+    color: colors.ink,
+  },
+});
+
+const headerStyles = StyleSheet.create({
+  header: {
+    backgroundColor: colors.background,
+    shadowColor: 'transparent',
+    elevation: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+});
+
+const staticTabOptions: Pick<
+  BottomTabNavigationOptions,
+  'headerStyle' | 'headerTintColor' | 'headerTitleStyle' | 'tabBarShowLabel'
+> = {
+  headerStyle: headerStyles.header,
+  headerTintColor: colors.ink,
+  headerTitleStyle: stylesTitle.headerTitle,
+  tabBarShowLabel: false,
+};
 
 const TabNavigator = () => {
+  const screenOptions = useMemo(
+    (): BottomTabNavigationOptions => ({
+      ...staticTabOptions,
+      tabBarStyle: {
+        position: 'absolute',
+        backgroundColor: 'transparent',
+        borderTopWidth: 0,
+        elevation: 0,
+        height: 0,
+      },
+    }),
+    []
+  );
+
+  const renderTabBar = useMemo(
+    () => (props: BottomTabBarProps) => <FloatingTabBar {...props} />,
+    []
+  );
+
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName: string;
-
-          switch (route.name) {
-            case 'Home':
-              iconName = 'home';
-              break;
-            case 'Rating':
-              iconName = 'star';
-              break;
-            case 'Goals':
-              iconName = 'emoji-events';
-              break;
-            case 'Analytics':
-              iconName = 'bar-chart';
-              break;
-            case 'Profile':
-              iconName = 'person';
-              break;
-            default:
-              iconName = 'help';
-          }
-
-          return <Icon name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
-        headerStyle: {
-          backgroundColor: colors.surface,
-          shadowColor: 'transparent',
-          elevation: 0,
-        },
-        headerTintColor: colors.textPrimary,
-      })}
-    >
+    <Tab.Navigator screenOptions={screenOptions} tabBar={renderTabBar}>
       <Tab.Screen
         name="Home"
         component={DashboardScreen}
         options={{
           title: 'Kovariya',
-          headerTitle: 'Dashboard',
+          headerTitle: 'Home',
         }}
       />
       <Tab.Screen
@@ -77,7 +79,7 @@ const TabNavigator = () => {
         component={RatingScreen}
         options={{
           title: 'Rating',
-          headerTitle: 'Rate Behaviour',
+          headerTitle: 'Rate behaviour',
         }}
       />
       <Tab.Screen
@@ -85,7 +87,7 @@ const TabNavigator = () => {
         component={GoalsScreen}
         options={{
           title: 'Goals',
-          headerTitle: 'Goals & Missions',
+          headerTitle: 'Goals & missions',
         }}
       />
       <Tab.Screen
@@ -93,7 +95,7 @@ const TabNavigator = () => {
         component={AnalyticsScreen}
         options={{
           title: 'Analytics',
-          headerTitle: 'Analytics & Insights',
+          headerTitle: 'Insights',
         }}
       />
       <Tab.Screen
@@ -101,7 +103,7 @@ const TabNavigator = () => {
         component={ProfileScreen}
         options={{
           title: 'Profile',
-          headerTitle: 'Profile & Settings',
+          headerTitle: 'You',
         }}
       />
     </Tab.Navigator>

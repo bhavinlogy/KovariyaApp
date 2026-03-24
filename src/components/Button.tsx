@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
-  TouchableOpacity,
   Text,
   View,
   ViewStyle,
   TextStyle,
   ActivityIndicator,
   StyleSheet,
+  Pressable,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius, textStyles } from '../theme';
 
 interface ButtonProps {
@@ -20,9 +21,10 @@ interface ButtonProps {
   style?: ViewStyle;
   textStyle?: TextStyle;
   icon?: React.ReactNode;
+  hapticOnPress?: boolean;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+export const Button = React.memo(function Button({
   title,
   onPress,
   variant = 'primary',
@@ -32,10 +34,21 @@ export const Button: React.FC<ButtonProps> = ({
   style,
   textStyle,
   icon,
-}) => {
+  hapticOnPress = true,
+}: ButtonProps) {
+  const handlePress = useCallback(() => {
+    if (disabled || loading) {
+      return;
+    }
+    if (hapticOnPress && (variant === 'primary' || variant === 'secondary')) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    onPress();
+  }, [disabled, loading, hapticOnPress, variant, onPress]);
+
   const getButtonStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
-      borderRadius: borderRadius.medium,
+      borderRadius: borderRadius.large,
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
@@ -51,9 +64,9 @@ export const Button: React.FC<ButtonProps> = ({
     switch (size) {
       case 'small':
         return {
-          paddingHorizontal: spacing.sm,
-          paddingVertical: spacing.xs,
-          minHeight: 36,
+          paddingHorizontal: spacing.md,
+          paddingVertical: spacing.sm,
+          minHeight: 40,
         };
       case 'large':
         return {
@@ -73,20 +86,20 @@ export const Button: React.FC<ButtonProps> = ({
   const getVariantStyle = (): ViewStyle => {
     if (disabled) {
       return {
-        backgroundColor: colors.border,
+        backgroundColor: colors.surfaceMuted,
       };
     }
 
     switch (variant) {
       case 'secondary':
         return {
-          backgroundColor: colors.growth,
+          backgroundColor: colors.mintSoft,
         };
       case 'outline':
         return {
           backgroundColor: 'transparent',
-          borderWidth: 1,
-          borderColor: colors.primary,
+          borderWidth: 1.5,
+          borderColor: colors.ink,
         };
       case 'ghost':
         return {
@@ -94,7 +107,7 @@ export const Button: React.FC<ButtonProps> = ({
         };
       default:
         return {
-          backgroundColor: colors.primary,
+          backgroundColor: colors.ink,
         };
     }
   };
@@ -108,15 +121,20 @@ export const Button: React.FC<ButtonProps> = ({
     if (disabled) {
       return {
         ...baseStyle,
-        color: colors.textSecondary,
+        color: colors.textMuted,
       };
     }
 
     switch (variant) {
+      case 'secondary':
+        return {
+          ...baseStyle,
+          color: colors.growth,
+        };
       case 'outline':
         return {
           ...baseStyle,
-          color: colors.primary,
+          color: colors.ink,
         };
       case 'ghost':
         return {
@@ -126,33 +144,41 @@ export const Button: React.FC<ButtonProps> = ({
       default:
         return {
           ...baseStyle,
-          color: '#FFFFFF',
+          color: colors.surface,
         };
     }
   };
 
   return (
-    <TouchableOpacity
-      style={[styles.button, getButtonStyle(), style]}
-      onPress={onPress}
+    <Pressable
+      style={({ pressed }) => [
+        styles.button,
+        getButtonStyle(),
+        style,
+        pressed && !disabled && !loading ? styles.pressed : null,
+      ]}
+      onPress={handlePress}
       disabled={disabled || loading}
-      activeOpacity={0.7}
     >
       {loading ? (
         <ActivityIndicator color={getTextStyle().color} size="small" />
       ) : (
         <>
-          {icon && <View style={styles.icon}>{icon}</View>}
+          {icon ? <View style={styles.icon}>{icon}</View> : null}
           <Text style={[getTextStyle(), textStyle]}>{title}</Text>
         </>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
-};
+});
 
 const styles = StyleSheet.create({
   button: {
     marginVertical: spacing.xs,
+  },
+  pressed: {
+    opacity: 0.92,
+    transform: [{ scale: 0.98 }],
   },
   icon: {
     marginRight: spacing.xs,

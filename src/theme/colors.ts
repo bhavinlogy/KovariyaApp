@@ -1,34 +1,58 @@
+/**
+ * Kovariya — calm wellness + premium (light).
+ * Pastel accents inspired by modern fitness/wellness references; ink for contrast.
+ */
 export const colors = {
-  // Brand Colors
-  primary: '#2563EB',
-  growth: '#10B981',
-  accent: '#F59E0B',
-  
-  // Neutral Colors
-  background: '#F8FAFC',
+  // Core ink & neutrals
+  ink: '#0D0D0D',
+  background: '#F3F2F7',
   surface: '#FFFFFF',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  border: '#E5E7EB',
-  
-  // Semantic Colors
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  info: '#2563EB',
-  
-  // Gradients
-  primaryGradient: ['#2563EB', '#1D4ED8'],
-  successGradient: ['#10B981', '#059669'],
-  
-  // Opacity
-  primaryLight: 'rgba(37, 99, 235, 0.1)',
-  growthLight: 'rgba(16, 185, 129, 0.1)',
-  accentLight: 'rgba(245, 158, 11, 0.1)',
-  
-  // Shadows
-  shadow: 'rgba(0, 0, 0, 0.08)',
-  shadowDark: 'rgba(0, 0, 0, 0.12)',
+  surfaceMuted: '#EFEDF5',
+  textPrimary: '#111111',
+  textSecondary: '#6B6678',
+  textMuted: '#9B95A8',
+  border: 'rgba(17, 17, 17, 0.08)',
+  borderStrong: 'rgba(17, 17, 17, 0.12)',
+
+  // Pastel accents (reference palette)
+  lavender: '#B8A9F9',
+  lavenderSoft: '#E8E4FF',
+  peach: '#FFC074',
+  peachSoft: '#FFF0DC',
+  mint: '#C1EAD1',
+  mintSoft: '#E8F8EE',
+  sky: '#B6D7FB',
+  skySoft: '#E8F1FE',
+
+  // Brand / interactive (lavender-forward)
+  primary: '#7C6AE8',
+  primaryDark: '#5E4FD4',
+  growth: '#3FA97A',
+  accent: '#E8A04A',
+
+  // Semantic
+  success: '#2FA87A',
+  warning: '#E8A04A',
+  error: '#E85D5D',
+  info: '#6B8EF0',
+
+  // Overlays & tints
+  primaryLight: 'rgba(124, 106, 232, 0.12)',
+  growthLight: 'rgba(63, 169, 122, 0.12)',
+  accentLight: 'rgba(232, 160, 74, 0.14)',
+  inkOverlay: 'rgba(13, 13, 13, 0.55)',
+
+  // Tab bar (floating pill)
+  tabBarBackground: '#121212',
+  tabBarIconActive: '#FFFFFF',
+  tabBarIconInactive: 'rgba(255, 255, 255, 0.42)',
+  tabBarActivePill: '#FFFFFF',
+
+  // Legacy keys kept for gradual refactors in components
+  primaryGradient: ['#7C6AE8', '#5E4FD4'] as const,
+  successGradient: ['#3FA97A', '#2C8F63'] as const,
+  shadow: 'rgba(0, 0, 0, 0.06)',
+  shadowDark: 'rgba(0, 0, 0, 0.1)',
 };
 
 export type ColorKeys = keyof typeof colors;

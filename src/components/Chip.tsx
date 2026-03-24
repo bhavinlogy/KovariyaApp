@@ -17,14 +17,14 @@ interface ChipProps {
   variant?: 'default' | 'filter' | 'reason';
 }
 
-export const Chip: React.FC<ChipProps> = ({
+export const Chip = React.memo(function Chip({
   label,
   selected = false,
   onPress,
   style,
   textStyle,
   variant = 'default',
-}) => {
+}: ChipProps) {
   const getChipStyle = (): ViewStyle => {
     const baseStyle: ViewStyle = {
       borderRadius: borderRadius.full,
@@ -94,7 +94,7 @@ export const Chip: React.FC<ChipProps> = ({
       <Text style={[getTextStyle(), textStyle]}>{label}</Text>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
   chip: {
