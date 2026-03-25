@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
   Text,
   View,
@@ -8,6 +8,13 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
+import Animated, {
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius, textStyles } from '../theme';
 
@@ -36,6 +43,20 @@ export const Button = React.memo(function Button({
   icon,
   hapticOnPress = true,
 }: ButtonProps) {
+  const loadingProgress = useSharedValue(loading ? 1 : 0);
+  const pressPulse = useSharedValue(1);
+
+  useEffect(() => {
+    loadingProgress.value = withTiming(loading ? 1 : 0, {
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
+    });
+    pressPulse.value = withTiming(loading ? 0.985 : 1, {
+      duration: 240,
+      easing: Easing.out(Easing.quad),
+    });
+  }, [loading, loadingProgress, pressPulse]);
+
   const handlePress = useCallback(() => {
     if (disabled || loading) {
       return;
@@ -84,7 +105,7 @@ export const Button = React.memo(function Button({
   };
 
   const getVariantStyle = (): ViewStyle => {
-    if (disabled) {
+    if (disabled && !loading) {
       return {
         backgroundColor: colors.surfaceMuted,
       };
@@ -118,7 +139,7 @@ export const Button = React.memo(function Button({
       textAlign: 'center' as const,
     };
 
-    if (disabled) {
+    if (disabled && !loading) {
       return {
         ...baseStyle,
         color: colors.textMuted,
@@ -149,26 +170,63 @@ export const Button = React.memo(function Button({
     }
   };
 
+  const spinnerColor = getTextStyle().color as string;
+
+  const labelAnim = useAnimatedStyle(() => ({
+    opacity: interpolate(loadingProgress.value, [0, 1], [1, 0]),
+    transform: [
+      {
+        translateY: interpolate(loadingProgress.value, [0, 1], [0, -6]),
+      },
+      {
+        scale: interpolate(loadingProgress.value, [0, 1], [1, 0.94]),
+      },
+    ],
+  }));
+
+  const spinnerAnim = useAnimatedStyle(() => ({
+    opacity: interpolate(loadingProgress.value, [0, 0.35, 1], [0, 0.85, 1]),
+    transform: [
+      {
+        scale: interpolate(loadingProgress.value, [0, 1], [0.65, 1]),
+      },
+    ],
+  }));
+
+  const shellAnim = useAnimatedStyle(() => ({
+    transform: [{ scale: pressPulse.value }],
+  }));
+
   return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        getButtonStyle(),
-        style,
-        pressed && !disabled && !loading ? styles.pressed : null,
-      ]}
-      onPress={handlePress}
-      disabled={disabled || loading}
-    >
-      {loading ? (
-        <ActivityIndicator color={getTextStyle().color} size="small" />
-      ) : (
-        <>
-          {icon ? <View style={styles.icon}>{icon}</View> : null}
-          <Text style={[getTextStyle(), textStyle]}>{title}</Text>
-        </>
-      )}
-    </Pressable>
+    <Animated.View style={[styles.button, shellAnim]}>
+      <Pressable
+        style={({ pressed }) => [
+          getButtonStyle(),
+          style,
+          pressed && !disabled && !loading ? styles.pressed : null,
+        ]}
+        onPress={handlePress}
+        disabled={disabled || loading}
+        accessibilityState={{ busy: loading }}
+      >
+        <View style={styles.slot}>
+          <Animated.View
+            style={[styles.labelRow, labelAnim]}
+            pointerEvents={loading ? 'none' : 'auto'}
+          >
+            {icon ? <View style={styles.icon}>{icon}</View> : null}
+            <Text style={[getTextStyle(), textStyle]}>{title}</Text>
+          </Animated.View>
+
+          <Animated.View
+            style={[styles.spinnerLayer, spinnerAnim]}
+            pointerEvents="none"
+          >
+            <ActivityIndicator color={spinnerColor} size="small" />
+          </Animated.View>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 });
 
@@ -178,7 +236,24 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.92,
-    transform: [{ scale: 0.98 }],
+  },
+  slot: {
+    width: '100%',
+    alignSelf: 'stretch',
+    position: 'relative',
+    minHeight: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  labelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spinnerLayer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   icon: {
     marginRight: spacing.xs,

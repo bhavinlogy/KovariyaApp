@@ -153,7 +153,7 @@ const DashboardScreen: React.FC = () => {
         </View>
 
         <View style={styles.sectionTight}>
-          <Text style={styles.sectionTitle}>How {MOCK_CHILD.name} is doing</Text>
+          <Text style={[styles.sectionTitle, { paddingHorizontal: spacing.lg }]}>How {MOCK_CHILD.name} is doing</Text>
           <View style={styles.metricsRow}>
             <View style={[styles.metricTile, { backgroundColor: colors.skySoft }]}>
               <Text style={styles.metricLabel}>Trust</Text>
@@ -164,7 +164,7 @@ const DashboardScreen: React.FC = () => {
                 strokeWidth={5}
                 backgroundColor="rgba(255,255,255,0.7)"
               />
-              <Text style={styles.metricValue}>{MOCK_CHILD.trustMeter}%</Text>
+              {/* <Text style={styles.metricValue}>{MOCK_CHILD.trustMeter}%</Text> */}
             </View>
             <View style={[styles.metricTile, { backgroundColor: colors.peachSoft }]}>
               <Text style={styles.metricLabel}>Confidence</Text>
@@ -175,7 +175,7 @@ const DashboardScreen: React.FC = () => {
                 strokeWidth={5}
                 backgroundColor="rgba(255,255,255,0.7)"
               />
-              <Text style={styles.metricValue}>{MOCK_CHILD.confidenceIndicator}%</Text>
+              {/* <Text style={styles.metricValue}>{MOCK_CHILD.confidenceIndicator}%</Text> */}
             </View>
           </View>
         </View>
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 106, 232, 0.18)',
   },
   heroTop: {
-    flexDirection: 'row',
+    // flexDirection: 'row',
     justifyContent: 'space-between',
     gap: spacing.md,
   },
@@ -465,6 +465,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    paddingBottom: spacing.lg,
   },
   metricLabel: {
     ...textStyles.caption,

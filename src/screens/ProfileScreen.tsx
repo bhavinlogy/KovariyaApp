@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   ViewStyle,
   TextStyle,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { Card } from '../components';
 import { colors, spacing, textStyles, getFloatingTabBarBottomPadding, borderRadius } from '../theme';
 import { Child } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 type SettingId =
   | 'notifications'
@@ -29,13 +31,6 @@ type SettingRow = {
   subtitle: string;
   isDestructive?: boolean;
 };
-
-const PARENT_INFO = {
-  name: 'Sarah Johnson',
-  email: 'sarah.johnson@email.com',
-  phone: '+1 (555) 123-4567',
-  memberSince: 'January 2024',
-} as const;
 
 const MOCK_CHILDREN: Child[] = [
   {
@@ -140,15 +135,52 @@ function InitialAvatar({
 }
 
 const ProfileScreen: React.FC = () => {
+  const { logout, user } = useAuth();
   const insets = useSafeAreaInsets();
+
+  const parentInfo = {
+    name: user?.name || 'Wellness User',
+    email: user?.email || 'user@kovariya.com',
+    phone: '+1 (555) 123-4567',
+    memberSince: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024',
+  };
+
   const scrollBottomPad = useMemo(
     () => getFloatingTabBarBottomPadding(insets.bottom),
     [insets.bottom]
   );
 
-  const handleSettingPress = useCallback((_id: SettingId) => {
-    // Wire navigation, modals, and auth when integrated
-  }, []);
+  const handleSettingPress = useCallback((id: SettingId) => {
+    switch (id) {
+      case 'signOut':
+        Alert.alert(
+          'Sign Out',
+          'Are you sure you want to sign out?',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Sign Out',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await logout();
+                } catch (error) {
+                  console.error('Logout error:', error);
+                }
+              },
+            },
+          ]
+        );
+        break;
+      default:
+        // Handle other settings when implemented
+        console.log(`Setting pressed: ${id}`);
+        break;
+    }
+  }, [logout]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -161,7 +193,7 @@ const ProfileScreen: React.FC = () => {
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <InitialAvatar
-                label={initialsFromFullName(PARENT_INFO.name)}
+                label={initialsFromFullName(parentInfo.name)}
                 size={80}
                 backgroundColor={colors.lavenderSoft}
               />
@@ -174,9 +206,9 @@ const ProfileScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
             <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{PARENT_INFO.name}</Text>
-              <Text style={styles.profileEmail}>{PARENT_INFO.email}</Text>
-              <Text style={styles.memberSince}>Member since {PARENT_INFO.memberSince}</Text>
+              <Text style={styles.profileName}>{parentInfo.name}</Text>
+              <Text style={styles.profileEmail}>{parentInfo.email}</Text>
+              <Text style={styles.memberSince}>Member since {parentInfo.memberSince}</Text>
             </View>
           </View>
         </Card>
