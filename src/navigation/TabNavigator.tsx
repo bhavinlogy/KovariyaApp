@@ -4,8 +4,6 @@ import {
   type BottomTabBarProps,
   type BottomTabNavigationOptions,
 } from '@react-navigation/bottom-tabs';
-import { StyleSheet } from 'react-native';
-import { colors } from '../theme';
 import { FloatingTabBar } from './FloatingTabBar';
 
 import DashboardScreen from '../screens/DashboardScreen';
@@ -16,31 +14,12 @@ import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
-const stylesTitle = StyleSheet.create({
-  headerTitle: {
-    fontWeight: '600',
-    fontSize: 18,
-    color: colors.ink,
-  },
-});
-
-const headerStyles = StyleSheet.create({
-  header: {
-    backgroundColor: colors.background,
-    shadowColor: 'transparent',
-    elevation: 0,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-});
-
 const staticTabOptions: Pick<
   BottomTabNavigationOptions,
-  'headerStyle' | 'headerTintColor' | 'headerTitleStyle' | 'tabBarShowLabel'
+  'headerShown' | 'tabBarShowLabel'
 > = {
-  headerStyle: headerStyles.header,
-  headerTintColor: colors.ink,
-  headerTitleStyle: stylesTitle.headerTitle,
+  // Main tab pages should be immersive; keep top bars for sub-pages only.
+  headerShown: false,
   tabBarShowLabel: false,
 };
 
@@ -71,7 +50,6 @@ const TabNavigator = () => {
         component={DashboardScreen}
         options={{
           title: 'Kovariya',
-          headerTitle: 'Home',
         }}
       />
       <Tab.Screen
@@ -79,7 +57,6 @@ const TabNavigator = () => {
         component={RatingScreen}
         options={{
           title: 'Rating',
-          headerTitle: 'Rate behaviour',
         }}
       />
       <Tab.Screen
@@ -87,7 +64,6 @@ const TabNavigator = () => {
         component={GoalsScreen}
         options={{
           title: 'Goals',
-          headerTitle: 'Goals & missions',
         }}
       />
       <Tab.Screen
@@ -95,7 +71,6 @@ const TabNavigator = () => {
         component={AnalyticsScreen}
         options={{
           title: 'Analytics',
-          headerTitle: 'Insights',
         }}
       />
       <Tab.Screen
@@ -103,7 +78,6 @@ const TabNavigator = () => {
         component={ProfileScreen}
         options={{
           title: 'Profile',
-          headerTitle: 'You',
         }}
       />
     </Tab.Navigator>
