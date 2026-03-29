@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Platform,
   AccessibilityInfo,
+  Modal,
 } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,11 +92,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      {visible ? (
-        <View
-          pointerEvents="box-none"
-          style={[StyleSheet.absoluteFill, styles.overlay]}
-        >
+      <Modal
+        transparent
+        visible={visible}
+        animationType="fade"
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+        onRequestClose={hideToast}
+      >
+        <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.overlay]}>
           <Animated.View
             entering={FadeInDown.springify().damping(18).stiffness(220)}
             exiting={FadeOutUp.duration(180)}
@@ -134,7 +139,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             </Pressable>
           </Animated.View>
         </View>
-      ) : null}
+      </Modal>
     </ToastContext.Provider>
   );
 }

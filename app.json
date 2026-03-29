@@ -16,17 +16,29 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.kovariya.app"
+      "bundleIdentifier": "com.kovariya.app",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Allow KovariyaApp to record voice notes for mission evidence."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.kovariya.app"
+      "package": "com.kovariya.app",
+      "permissions": ["android.permission.RECORD_AUDIO"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to attach mission evidence."
+        }
+      ]
+    ]
   }
 }

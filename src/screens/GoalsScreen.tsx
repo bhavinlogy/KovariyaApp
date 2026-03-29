@@ -11,6 +11,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Button, Card } from '../components';
+import { MissionEvidenceStrip, type EvidenceKind } from '../components/goals/MissionEvidenceStrip';
+import { QuizSessionModal, type QuizCompletePayload } from '../components/goals/QuizSessionModal';
+import { useToast } from '../context/ToastContext';
 import {
   borderRadius,
   colors,
@@ -19,12 +22,9 @@ import {
   textStyles,
 } from '../theme';
 import { Goal, Mission, Quiz } from '../types';
+import { MissionsTabPanel } from '../components/missions/MissionsTabPanel';
 
 type GoalsTabKey = 'goals' | 'missions' | 'quizzes';
-type MissionWithEvidence = Mission & {
-  evidenceTypes: Array<'photo' | 'voice' | 'text'>;
-  assignedBy: 'Mentor' | 'School';
-};
 
 const MOCK_GOALS: Goal[] = [
   {
@@ -59,14 +59,14 @@ const MOCK_GOALS: Goal[] = [
   },
 ];
 
-const MOCK_MISSIONS: MissionWithEvidence[] = [
+const MOCK_MISSIONS: Mission[] = [
   {
     id: 'm1',
     title: 'Plant a Tree',
     description: 'Plant one sapling and explain how you will care for it.',
     type: 'photo',
     points: 25,
-    isCompleted: false,
+    submissionStatus: 'pending',
     evidenceTypes: ['photo', 'voice', 'text'],
     assignedBy: 'Mentor',
   },
@@ -76,7 +76,7 @@ const MOCK_MISSIONS: MissionWithEvidence[] = [
     description: 'Spend 15 minutes cleaning nearby surroundings safely.',
     type: 'text',
     points: 20,
-    isCompleted: false,
+    submissionStatus: 'pending',
     evidenceTypes: ['photo', 'text'],
     assignedBy: 'School',
   },
@@ -86,7 +86,7 @@ const MOCK_MISSIONS: MissionWithEvidence[] = [
     description: 'Track and reduce unnecessary power usage for one day.',
     type: 'voice',
     points: 18,
-    isCompleted: true,
+    submissionStatus: 'submitted',
     evidenceTypes: ['voice', 'text'],
     assignedBy: 'Mentor',
     submission: {
@@ -100,16 +100,20 @@ const MOCK_QUIZZES: Quiz[] = [
   {
     id: 'q1',
     title: 'Civic Responsibility Basics',
-    questions: 12,
+    questions: 3,
     completed: false,
+    category: 'Civics',
+    estimatedMinutes: 8,
   },
   {
     id: 'q2',
     title: 'Respect & Discipline Quiz',
-    questions: 10,
+    questions: 2,
     completed: true,
     score: 88,
     time: '6 min',
+    category: 'Family values',
+    estimatedMinutes: 5,
   },
 ];
 
@@ -173,17 +177,35 @@ const GoalsPanel = memo(function GoalsPanel({ goals }: { goals: Goal[] }) {
   );
 });
 
-const MissionsPanel = memo(function MissionsPanel({ missions }: { missions: MissionWithEvidence[] }) {
+function missionStatusLabel(status: Mission['submissionStatus']): string {
+  if (status === 'pending') {
+    return 'Pending';
+  }
+  if (status === 'submitted') {
+    return 'Submitted';
+  }
+  return 'Approved';
+}
+
+const MissionsPanel = memo(function MissionsPanel({
+  missions,
+  onEvidenceChannel,
+}: {
+  missions: Mission[];
+  onEvidenceChannel: (missionId: string, kind: EvidenceKind, allowed: boolean) => void;
+}) {
   return (
     <View>
-      {missions.map((mission) => (
+      {missions.map((mission) => {
+        const done = mission.submissionStatus !== 'pending';
+        return (
         <Animated.View key={mission.id} entering={FadeInDown.springify().damping(18).stiffness(220)}>
           <Card variant="elevated" style={styles.missionCard}>
             <View style={styles.missionHeader}>
               <Text style={styles.missionTitle}>{mission.title}</Text>
-              <View style={[styles.statusPill, mission.isCompleted && styles.statusPillDone]}>
-                <Text style={[styles.statusPillText, mission.isCompleted && styles.statusPillTextDone]}>
-                  {mission.isCompleted ? 'Completed' : 'Pending'}
+              <View style={[styles.statusPill, done && styles.statusPillDone]}>
+                <Text style={[styles.statusPillText, done && styles.statusPillTextDone]}>
+                  {missionStatusLabel(mission.submissionStatus)}
                 </Text>
               </View>
             </View>
@@ -194,72 +216,131 @@ const MissionsPanel = memo(function MissionsPanel({ missions }: { missions: Miss
               <Text style={styles.metaText}>Reward: +{mission.points} raw points</Text>
             </View>
 
-            <Text style={styles.evidenceLabel}>Evidence submission</Text>
-            <View style={styles.evidenceActions}>
-              {mission.evidenceTypes.map((type) => (
-                <TouchableOpacity
-                  key={`${mission.id}-${type}`}
-                  style={styles.evidenceBtn}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Submit ${type} evidence`}
-                >
-                  <Icon
-                    name={type === 'photo' ? 'camera-alt' : type === 'voice' ? 'keyboard-voice' : 'notes'}
-                    size={18}
-                    color={colors.primary}
-                  />
-                  <Text style={styles.evidenceBtnText}>
-                    {type === 'photo' ? 'Photo' : type === 'voice' ? 'Voice' : 'Text'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <MissionEvidenceStrip
+              missionId={mission.id}
+              allowed={mission.evidenceTypes}
+              missionCompleted={done}
+              onChannelPress={onEvidenceChannel}
+            />
 
-            <Text style={styles.approvalNote}>Mentor/school approves completion after submission review.</Text>
+            {mission.submission ? (
+              <View style={styles.submissionCard}>
+                <View style={styles.submissionCardHeader}>
+                  <Icon name="task-alt" size={18} color={colors.growth} />
+                  <Text style={styles.submissionLabel}>Submitted evidence</Text>
+                </View>
+                {mission.submission.text ? (
+                  <Text style={styles.submissionBody}>{mission.submission.text}</Text>
+                ) : mission.submission.media ? (
+                  <Text style={styles.submissionBody}>{mission.submission.media}</Text>
+                ) : (
+                  <Text style={styles.submissionBodyMuted}>Attachment on file</Text>
+                )}
+                <Text style={styles.submissionTime}>{mission.submission.timestamp}</Text>
+              </View>
+            ) : null}
           </Card>
         </Animated.View>
-      ))}
+        );
+      })}
     </View>
   );
 });
 
-const QuizzesPanel = memo(function QuizzesPanel({ quizzes }: { quizzes: Quiz[] }) {
-  const onQuizPress = useCallback(() => {
-    // Wire to quiz flow
-  }, []);
-
+const QuizzesPanel = memo(function QuizzesPanel({
+  quizzes,
+  onAttempt,
+  onViewResult,
+  onRetake,
+}: {
+  quizzes: Quiz[];
+  onAttempt: (quiz: Quiz) => void;
+  onViewResult: (quiz: Quiz) => void;
+  onRetake: (quiz: Quiz) => void;
+}) {
   return (
     <View>
       {quizzes.map((quiz) => (
         <Animated.View key={quiz.id} entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <Card variant="elevated" style={styles.quizCard}>
-            <View style={styles.quizHeader}>
-              <Text style={styles.quizTitle}>{quiz.title}</Text>
+          <Card
+            variant="elevated"
+            style={
+              quiz.completed
+                ? { ...styles.quizCard, ...styles.quizCardDone }
+                : { ...styles.quizCard, ...styles.quizCardOpen }
+            }
+          >
+            <View style={styles.quizTopRow}>
+              {quiz.category ? (
+                <View style={styles.quizCategoryChip}>
+                  <Text style={styles.quizCategoryText}>{quiz.category}</Text>
+                </View>
+              ) : null}
               {quiz.completed ? (
-                <View style={styles.completedBadge}>
-                  <Icon name="check-circle" size={20} color={colors.growth} />
-                  <Text style={styles.completedText}>{quiz.score}%</Text>
+                <View style={styles.quizScorePill}>
+                  <Icon name="emoji-events" size={16} color={colors.accent} />
+                  <Text style={styles.quizScorePillText}>{quiz.score}%</Text>
                 </View>
               ) : (
-                <Text style={styles.quizQuestions}>{quiz.questions} questions</Text>
+                <View style={styles.quizPendingPill}>
+                  <Text style={styles.quizPendingPillText}>New</Text>
+                </View>
               )}
             </View>
+
+            <Text style={styles.quizTitle}>{quiz.title}</Text>
+
+            <View style={styles.quizMetaRow}>
+              <View style={styles.quizMetaItem}>
+                <Icon name="help-outline" size={16} color={colors.textMuted} />
+                <Text style={styles.quizMetaText}>{quiz.questions} questions</Text>
+              </View>
+              {quiz.estimatedMinutes != null ? (
+                <View style={styles.quizMetaItem}>
+                  <Icon name="schedule" size={16} color={colors.textMuted} />
+                  <Text style={styles.quizMetaText}>~{quiz.estimatedMinutes} min</Text>
+                </View>
+              ) : null}
+            </View>
+
             <Text style={styles.quizSubline}>
               {quiz.completed
-                ? `Result available • Completed in ${quiz.time}`
-                : 'Assigned by mentor • Ready to attempt'}
+                ? `Last result • ${quiz.time ?? 'Completed'}`
+                : 'Assigned by mentor • Tap below when you have a quiet moment'}
             </Text>
+
             <View style={styles.quizActionRow}>
-              <Button
-                title={quiz.completed ? 'View result' : 'Attempt quiz'}
-                variant={quiz.completed ? 'outline' : 'primary'}
-                size="small"
-                onPress={onQuizPress}
-                style={styles.quizActionButton}
-              />
               {quiz.completed ? (
-                <Button title="Retake" variant="ghost" size="small" onPress={onQuizPress} style={styles.quizGhost} />
-              ) : null}
+                <>
+                  <View style={styles.quizActionBtnCol}>
+                    <Button
+                      title="View result"
+                      variant="primary"
+                      size="small"
+                      onPress={() => onViewResult(quiz)}
+                      style={styles.quizBtnInCol}
+                    />
+                  </View>
+                  <View style={styles.quizActionBtnCol}>
+                    <Button
+                      title="Retake"
+                      variant="outline"
+                      size="small"
+                      onPress={() => onRetake(quiz)}
+                      style={styles.quizBtnInCol}
+                    />
+                  </View>
+                </>
+              ) : (
+                <Button
+                  title="Start quiz"
+                  variant="primary"
+                  size="small"
+                  onPress={() => onAttempt(quiz)}
+                  style={styles.quizActionFull}
+                  icon={<Icon name="play-arrow" size={20} color={colors.surface} />}
+                />
+              )}
             </View>
           </Card>
         </Animated.View>
@@ -270,13 +351,90 @@ const QuizzesPanel = memo(function QuizzesPanel({ quizzes }: { quizzes: Quiz[] }
 
 const GoalsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { showToast } = useToast();
   const scrollBottomPad = useMemo(() => getFloatingTabBarBottomPadding(insets.bottom), [insets.bottom]);
   const [activeTab, setActiveTab] = useState<GoalsTabKey>('goals');
   const [showAddGoalOverlay, setShowAddGoalOverlay] = useState(false);
+  const [quizzesState, setQuizzesState] = useState<Quiz[]>(MOCK_QUIZZES);
+  const [quizSession, setQuizSession] = useState<{ quiz: Quiz; mode: 'attempt' | 'result' } | null>(
+    null,
+  );
   const addGoalProgress = useSharedValue(0);
 
   const onTabPress = useCallback((key: GoalsTabKey) => {
     setActiveTab(key);
+  }, []);
+
+  const onEvidenceChannel = useCallback(
+    (missionId: string, kind: EvidenceKind, allowed: boolean) => {
+      const mission = MOCK_MISSIONS.find((m) => m.id === missionId);
+      if (mission && mission.submissionStatus !== 'pending') {
+        return;
+      }
+      if (!allowed) {
+        showToast({
+          message:
+            'Not required for this mission — optional channels stay available if you want to add more context.',
+          type: 'info',
+        });
+        return;
+      }
+      const labels: Record<EvidenceKind, string> = {
+        photo: 'Camera & gallery',
+        voice: 'Voice recorder',
+        text: 'Written note',
+      };
+      showToast({
+        message: `${labels[kind]} will open here once uploads are connected.`,
+        type: 'info',
+      });
+    },
+    [showToast],
+  );
+
+  const openQuizAttempt = useCallback((quiz: Quiz) => {
+    setQuizSession({ quiz, mode: 'attempt' });
+  }, []);
+
+  const openQuizResult = useCallback((quiz: Quiz) => {
+    setQuizSession({ quiz, mode: 'result' });
+  }, []);
+
+  const handleQuizComplete = useCallback((payload: QuizCompletePayload) => {
+    setQuizzesState((prev) =>
+      prev.map((q) =>
+        q.id === payload.quizId
+          ? { ...q, completed: true, score: payload.score, time: payload.timeLabel }
+          : q,
+      ),
+    );
+    setQuizSession((session) =>
+      session && session.quiz.id === payload.quizId
+        ? {
+            quiz: {
+              ...session.quiz,
+              completed: true,
+              score: payload.score,
+              time: payload.timeLabel,
+            },
+            mode: 'result',
+          }
+        : session,
+    );
+  }, []);
+
+  const handleQuizRetakeFromModal = useCallback(() => {
+    setQuizSession((session) => {
+      if (!session) {
+        return null;
+      }
+      const latest = quizzesState.find((q) => q.id === session.quiz.id) ?? session.quiz;
+      return { quiz: latest, mode: 'attempt' };
+    });
+  }, [quizzesState]);
+
+  const closeQuizSession = useCallback(() => {
+    setQuizSession(null);
   }, []);
 
   const openAddGoal = useCallback(() => {
@@ -312,8 +470,8 @@ const GoalsScreen: React.FC = () => {
 
   const totalGoals = MOCK_GOALS.length;
   const activeGoals = MOCK_GOALS.filter((g) => g.isActive).length;
-  const completedMissions = MOCK_MISSIONS.filter((m) => m.isCompleted).length;
-  const pendingQuizzes = MOCK_QUIZZES.filter((q) => !q.completed).length;
+  const completedMissions = MOCK_MISSIONS.filter((m) => m.submissionStatus === 'approved').length;
+  const pendingQuizzes = quizzesState.filter((q) => !q.completed).length;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -336,7 +494,7 @@ const GoalsScreen: React.FC = () => {
                   <Icon name="flag" size={16} color={colors.primary} />
                 </View>
                 <Text style={styles.statPillValue}>{activeGoals}/{totalGoals}</Text>
-                <Text style={styles.statPillLabel}>Goals Active</Text>
+                <Text style={styles.statPillLabel}>{"Goals\nActive"}</Text>
                 <Text style={styles.statPillHint}>In progress now</Text>
               </View>
               <View style={[styles.statPill, styles.statPillMissions]}>
@@ -383,20 +541,39 @@ const GoalsScreen: React.FC = () => {
 
         <Animated.View entering={FadeInDown.duration(260)} key={activeTab} style={styles.contentContainer}>
           {activeTab === 'goals' ? <GoalsPanel goals={MOCK_GOALS} /> : null}
-          {activeTab === 'missions' ? <MissionsPanel missions={MOCK_MISSIONS} /> : null}
-          {activeTab === 'quizzes' ? <QuizzesPanel quizzes={MOCK_QUIZZES} /> : null}
+          {activeTab === 'missions' ? (
+            <MissionsTabPanel scrollBottomPad={scrollBottomPad} />
+          ) : null}
+          {activeTab === 'quizzes' ? (
+            <QuizzesPanel
+              quizzes={quizzesState}
+              onAttempt={openQuizAttempt}
+              onViewResult={openQuizResult}
+              onRetake={openQuizAttempt}
+            />
+          ) : null}
         </Animated.View>
       </ScrollView>
 
-      <Pressable
-        onPress={openAddGoal}
-        style={[styles.fab, { bottom: Math.max(insets.bottom, spacing.md) + 86 }]}
-        accessibilityRole="button"
-        accessibilityLabel="Open add goal"
-      >
-         <Icon name="add" size={28} color={colors.surface} />
-        {/* <Text style={styles.fabText}>Add Goal</Text> */}
-      </Pressable>
+      {activeTab === 'goals' ? (
+        <Pressable
+          onPress={openAddGoal}
+          style={[styles.fab, { bottom: Math.max(insets.bottom, spacing.md) + 86 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Open add goal"
+        >
+          <Icon name="add" size={28} color={colors.surface} />
+        </Pressable>
+      ) : null}
+
+      <QuizSessionModal
+        visible={quizSession != null}
+        quiz={quizSession?.quiz ?? null}
+        startMode={quizSession?.mode ?? 'attempt'}
+        onClose={closeQuizSession}
+        onComplete={handleQuizComplete}
+        onRetake={handleQuizRetakeFromModal}
+      />
 
       {showAddGoalOverlay ? (
         <Animated.View style={[styles.addGoalOverlay, addGoalOverlayAnim]}>
@@ -689,84 +866,144 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 2,
   },
-  evidenceLabel: {
-    ...textStyles.caption,
-    color: colors.textMuted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: spacing.xs,
+  submissionCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.large,
+    backgroundColor: colors.mintSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(47, 168, 122, 0.28)',
   },
-  evidenceActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  evidenceBtn: {
+  submissionCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: borderRadius.large,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    gap: 6,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
-  evidenceBtnText: {
+  submissionLabel: {
     ...textStyles.caption,
-    color: colors.primary,
-    fontWeight: '700',
+    color: colors.growth,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
-  approvalNote: {
+  submissionBody: {
+    ...textStyles.bodyMedium,
+    color: colors.ink,
+    lineHeight: 22,
+  },
+  submissionBodyMuted: {
+    ...textStyles.bodyMedium,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  submissionTime: {
     ...textStyles.caption,
     color: colors.textSecondary,
+    marginTop: spacing.sm,
   },
   quizCard: {
     marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
-  quizHeader: {
+  quizCardOpen: {
+    backgroundColor: colors.peachSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 160, 74, 0.35)',
+  },
+  quizCardDone: {
+    backgroundColor: colors.surface,
+  },
+  quizTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  quizCategoryChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  quizCategoryText: {
+    ...textStyles.caption,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  quizScorePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.accentLight,
+  },
+  quizScorePillText: {
+    ...textStyles.caption,
+    fontWeight: '800',
+    color: colors.accent,
+  },
+  quizPendingPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.lavenderSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(124, 106, 232, 0.35)',
+  },
+  quizPendingPillText: {
+    ...textStyles.caption,
+    fontWeight: '800',
+    color: colors.primaryDark,
   },
   quizTitle: {
     ...textStyles.headingMedium,
-    flex: 1,
+    marginBottom: spacing.sm,
   },
-  quizQuestions: {
-    ...textStyles.caption,
-    color: colors.textSecondary,
-    fontWeight: '700',
+  quizMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
   },
-  completedBadge: {
+  quizMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  completedText: {
+  quizMetaText: {
     ...textStyles.caption,
-    color: colors.growth,
-    marginLeft: spacing.xs,
-    fontWeight: '700',
+    color: colors.textSecondary,
+    fontWeight: '600',
   },
   quizSubline: {
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
+    lineHeight: 20,
   },
   quizActionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+    alignItems: 'stretch',
+    gap: spacing.sm,
+    width: '100%',
   },
-  quizActionButton: {
+  quizActionBtnCol: {
     flex: 1,
+    minWidth: 0,
   },
-  quizGhost: {
-    minWidth: 92,
+  quizBtnInCol: {
+    width: '100%',
+  },
+  quizActionFull: {
+    flex: 1,
+    width: '100%',
   },
   fab: {
     position: 'absolute',

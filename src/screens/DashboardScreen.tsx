@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,31 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
+  Platform,
+  StatusBar as RNStatusBar,
+  Modal,
+  useWindowDimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { setStatusBarStyle } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Card, Button, ProgressCircle } from '../components';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import {
+  Card,
+  Button,
+  ProgressCircle,
+  AspectRatingSheet,
+  WeeklyAspectProgressChart,
+  AIInsightsCard,
+} from '../components';
 import {
   colors,
   spacing,
@@ -18,7 +38,15 @@ import {
   borderRadius,
   getFloatingTabBarBottomPadding,
 } from '../theme';
-import { AIGuidance, Child } from '../types';
+import { Child } from '../types';
+import { useToast } from '../context/ToastContext';
+import {
+  DASHBOARD_RATING_ASPECTS,
+  type RatingAspectDefinition,
+  type AspectRatingPayload,
+} from '../data/aspectRating';
+import { getWeeklyAspectProgressSeries } from '../data/weeklyAspectProgress';
+import { getAIInsightsForChild } from '../data/aiInsights';
 
 const PARENT_FIRST_NAME = 'Sarah';
 
@@ -26,53 +54,146 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-function getTrustMeta(score: number) {
-  const s = clamp(score, 0, 100);
-  if (s >= 80) {
+type TodayMissionStatus = 'pending' | 'done' | 'missed';
+
+const MISSION_FEEDBACK_DONE =
+  'Great job — you showed up today. Small wins stack into big habits.';
+
+const MISSION_FEEDBACK_MISSED =
+  "That happens to everyone. Tomorrow's a fresh start — keep this mission in mind and try again.";
+
+/** Soft, calm gradients — low saturation so the card feels gentle, not loud. */
+const MISSION_GRADIENT_PENDING = ['#F7F6FB', '#F3F1F9', '#EFF2F8'] as const;
+const MISSION_GRADIENT_DONE = ['#F6FAF8', '#F1F7F4', '#ECF4EF'] as const;
+const MISSION_GRADIENT_MISSED = ['#FBF9F8', '#F9F5F3', '#F6F0ED'] as const;
+
+/** Mock daily mission per child; replace with API. */
+const MOCK_TODAY_MISSION_BY_CHILD: Record<string, { title: string; detail: string }> = {
+  '1': {
+    title: 'One gratitude moment',
+    detail: 'Before bed, share one thing you appreciated about today together.',
+  },
+  '2': {
+    title: '10-minute focused homework block',
+    detail: 'Set a timer, one task only — celebrate when the timer ends.',
+  },
+  '3': {
+    title: 'Kind words practice',
+    detail: 'Give two specific compliments to someone at home today.',
+  },
+};
+
+/** Mock household; replace with API + context when wired. */
+const MOCK_CHILDREN: Child[] = [
+  {
+    id: '1',
+    name: 'Emma',
+    age: 8,
+    dailyScore: 8.5,
+    trustMeter: 78,
+    confidenceIndicator: 65,
+  },
+  {
+    id: '2',
+    name: 'Lucas',
+    age: 11,
+    dailyScore: 7.8,
+    trustMeter: 62,
+    confidenceIndicator: 58,
+  },
+  {
+    id: '3',
+    name: 'Mia',
+    age: 6,
+    dailyScore: 8.9,
+    trustMeter: 85,
+    confidenceIndicator: 72,
+  },
+];
+
+const MOCK_FAMILY_SCORE = 84; // 0-100 (percentage)
+
+/**
+ * Per-child SDS (0–100) and week-over-week trend %.
+ * Negative trend = performance dip; replace with API payload later.
+ */
+const MOCK_SDS_BY_CHILD: Record<string, { percent: number; trend: number }> = {
+  '1': { percent: 78, trend: 5 },
+  '2': { percent: 61, trend: -4 },
+  '3': { percent: 89, trend: 8 },
+};
+
+type SdsMoodKey = 'win' | 'lose' | 'flat';
+
+function getSdsCardMood(trend: number): {
+  mood: SdsMoodKey;
+  gradient: readonly [string, string, ...string[]];
+  titleColor: string;
+  numberColor: string;
+  hintColor: string;
+  trendColor: string;
+  barFill: string;
+  barTrack: string;
+  borderColor: string;
+  badge: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeIcon: string;
+  hint: (childName: string) => string;
+} {
+  if (trend > 0) {
     return {
-      level: 'High' as const,
-      color: colors.growth,
-      pillBg: colors.growthLight,
-      pillBorder: 'rgba(63, 169, 122, 0.28)',
-      ringBgHint: colors.mintSoft,
+      mood: 'win',
+      gradient: ['#E8FFF4', '#A8E8C8', '#3FA97A'],
+      titleColor: 'rgba(13, 61, 42, 0.72)',
+      numberColor: '#0A3020',
+      hintColor: 'rgba(13, 61, 42, 0.62)',
+      trendColor: '#0F5C3D',
+      barFill: '#1F7A55',
+      barTrack: 'rgba(255, 255, 255, 0.72)',
+      borderColor: 'rgba(63, 169, 122, 0.35)',
+      badge: 'Winning week',
+      badgeBg: 'rgba(255, 255, 255, 0.92)',
+      badgeText: '#145A3D',
+      badgeIcon: 'emoji-events',
+      hint: (name) => `${name} is building great momentum`,
     };
   }
-  if (s >= 50) {
+  if (trend < 0) {
     return {
-      level: 'Medium' as const,
-      color: colors.primary,
-      pillBg: colors.primaryLight,
-      pillBorder: 'rgba(124, 106, 232, 0.24)',
-      ringBgHint: colors.lavenderSoft,
+      mood: 'lose',
+      gradient: [...colors.failureGradient],
+      titleColor: 'rgba(74, 28, 28, 0.75)',
+      numberColor: '#3D1818',
+      hintColor: 'rgba(74, 28, 28, 0.65)',
+      trendColor: '#8B2323',
+      barFill: '#B54545',
+      barTrack: 'rgba(255, 255, 255, 0.55)',
+      borderColor: 'rgba(200, 92, 92, 0.4)',
+      badge: 'Room to grow',
+      badgeBg: 'rgba(255, 255, 255, 0.88)',
+      badgeText: '#7A2828',
+      badgeIcon: 'trending-down',
+      hint: (name) => `vs last week · ${name} dipped a little — small resets help`,
     };
   }
   return {
-    level: 'Low' as const,
-    color: colors.error,
-    pillBg: 'rgba(232, 93, 93, 0.10)',
-    pillBorder: 'rgba(232, 93, 93, 0.24)',
-    ringBgHint: colors.peachSoft,
+    mood: 'flat',
+    gradient: [...colors.neutralSdsGradient],
+    titleColor: colors.textSecondary,
+    numberColor: colors.ink,
+    hintColor: colors.textSecondary,
+    trendColor: colors.textSecondary,
+    barFill: colors.primary,
+    barTrack: 'rgba(255, 255, 255, 0.65)',
+    borderColor: 'rgba(124, 106, 232, 0.2)',
+    badge: 'Holding steady',
+    badgeBg: 'rgba(255, 255, 255, 0.9)',
+    badgeText: colors.textSecondary,
+    badgeIcon: 'trending-flat',
+    hint: (name) => `vs last week · ${name} is consistent — keep the rhythm`,
   };
 }
-
-const MOCK_CHILD: Child = {
-  id: '1',
-  name: 'Emma',
-  age: 8,
-  dailyScore: 8.5,
-  trustMeter: 78,
-  confidenceIndicator: 65,
-};
-
-const MOCK_FAMILY_SCORE = 84; // 0-100 (percentage)
-const MOCK_AI_GUIDANCE: AIGuidance = {
-  id: 'ai-1',
-  title: 'AI Guidance',
-  message:
-    'Today looks steady. For the quickest improvement: try one kind “why” question during homework, then end with a 30-second celebration.',
-  type: 'tip',
-  priority: 'high',
-};
 
 const WEEK_STRIP = [
   { id: 'mon', label: 'Mon', short: 'M', score: 7.2 },
@@ -84,57 +205,191 @@ const WEEK_STRIP = [
   { id: 'sun', label: 'Sun', short: 'Su', score: 8.5 },
 ] as const;
 
-const ASPECTS = [
-  { id: 'comm', name: 'Communication', score: 8, tone: colors.sky },
-  { id: 'resp', name: 'Responsibility', score: 7, tone: colors.peachSoft },
-  { id: 'kind', name: 'Kindness', score: 9, tone: colors.mintSoft },
-  { id: 'hones', name: 'Honesty', score: 8, tone: colors.lavenderSoft },
-  { id: 'resp2', name: 'Respect', score: 7, tone: colors.skySoft },
-] as const;
+/** 60° from horizontal for LinearGradient start→end (unit direction cos60°, sin60°). */
+const GRADIENT_60_END = { x: 0.5, y: 0.8660254037844386 } as const;
 
 const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const { showToast } = useToast();
+
+  /** Two columns: section horizontal padding + one gutter between tiles. */
+  const aspectTileWidth = useMemo(() => {
+    const horizontalPadding = spacing.lg * 2;
+    const columnGap = spacing.md;
+    const w = (windowWidth - horizontalPadding - columnGap) / 2;
+    return Math.max(100, Math.floor(w));
+  }, [windowWidth]);
+
   const bottomPad = useMemo(
     () => getFloatingTabBarBottomPadding(insets.bottom),
     [insets.bottom]
   );
   const [selectedDayId, setSelectedDayId] = useState<string>('thu');
+  const [selectedChildId, setSelectedChildId] = useState<string>(MOCK_CHILDREN[0].id);
+  const [childPickerVisible, setChildPickerVisible] = useState(false);
+  const [todayMissionByChildId, setTodayMissionByChildId] = useState<
+    Record<string, TodayMissionStatus>
+  >({});
+  const [ratingSheetAspect, setRatingSheetAspect] = useState<RatingAspectDefinition | null>(null);
 
-  const handleViewGuidance = useCallback(() => {
-    // Wire to guidance screen/modal when your backend is connected.
-  }, []);
+  const selectedChild = useMemo(
+    () => MOCK_CHILDREN.find((c) => c.id === selectedChildId) ?? MOCK_CHILDREN[0],
+    [selectedChildId]
+  );
 
   const selectedDay = useMemo(() => WEEK_STRIP.find((d) => d.id === selectedDayId) ?? WEEK_STRIP[0], [
     selectedDayId,
   ]);
 
-  const trustScore = clamp(MOCK_CHILD.trustMeter ?? 0, 0, 100);
-  const trustMeta = useMemo(() => getTrustMeta(trustScore), [trustScore]);
+  const todayMission = useMemo(
+    () => MOCK_TODAY_MISSION_BY_CHILD[selectedChild.id] ?? MOCK_TODAY_MISSION_BY_CHILD['1'],
+    [selectedChild.id]
+  );
+
+  const weeklyAspectProgressSeries = useMemo(
+    () => getWeeklyAspectProgressSeries(selectedChild.id),
+    [selectedChild.id]
+  );
+
+  const aiInsightsPayload = useMemo(
+    () => getAIInsightsForChild(selectedChild.id),
+    [selectedChild.id]
+  );
+
+  const todayMissionStatus: TodayMissionStatus = todayMissionByChildId[selectedChild.id] ?? 'pending';
+
+  const setTodayMissionForSelectedChild = useCallback((status: TodayMissionStatus) => {
+    setTodayMissionByChildId((prev) => ({ ...prev, [selectedChild.id]: status }));
+  }, [selectedChild.id]);
+
+  const closeChildPicker = useCallback(() => setChildPickerVisible(false), []);
+
+  const openAspectRating = useCallback((aspect: RatingAspectDefinition) => {
+    setRatingSheetAspect(aspect);
+  }, []);
+
+  const closeAspectRating = useCallback(() => setRatingSheetAspect(null), []);
+
+  const handleAspectRatingSave = useCallback(
+    (payload: AspectRatingPayload) => {
+      const label =
+        DASHBOARD_RATING_ASPECTS.find((a) => a.id === payload.aspectId)?.name ?? 'Aspect';
+      showToast({
+        type: 'success',
+        message: `Saved · ${label} rated for ${selectedChild.name}`,
+      });
+      closeAspectRating();
+    },
+    [closeAspectRating, selectedChild.name, showToast]
+  );
+
+  const handleVoiceNotePlaceholder = useCallback(() => {
+    showToast({
+      type: 'info',
+      message: 'Voice notes will be available in a future update.',
+      durationMs: 3500,
+    });
+  }, [showToast]);
+
+  const handleSelectChild = useCallback(
+    (childId: string) => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setSelectedChildId(childId);
+      closeChildPicker();
+    },
+    [closeChildPicker]
+  );
 
   // Confidence Factor (CF) is provided as percent (0-100) on this screen.
   // Your scoring system: CF = max(0.4, min(1, N/3)).
-  const confidencePercent = clamp(MOCK_CHILD.confidenceIndicator ?? 0, 0, 100);
+  const confidencePercent = clamp(selectedChild.confidenceIndicator ?? 0, 0, 100);
   const confidenceCF = confidencePercent / 100;
 
+  const sdsSnapshot = useMemo(() => {
+    const row = MOCK_SDS_BY_CHILD[selectedChild.id];
+    return row ?? { percent: 72, trend: 0 };
+  }, [selectedChild.id]);
+
+  const sdsMood = useMemo(() => getSdsCardMood(sdsSnapshot.trend), [sdsSnapshot.trend]);
+
+  const missionCardGradient = useMemo((): readonly [string, string, ...string[]] => {
+    if (todayMissionStatus === 'done') {
+      return [...MISSION_GRADIENT_DONE];
+    }
+    if (todayMissionStatus === 'missed') {
+      return [...MISSION_GRADIENT_MISSED];
+    }
+    return [...MISSION_GRADIENT_PENDING];
+  }, [todayMissionStatus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light');
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        RNStatusBar.setBackgroundColor('transparent');
+      }
+      return () => {
+        setStatusBarStyle('dark');
+        if (Platform.OS === 'android') {
+          RNStatusBar.setTranslucent(false);
+          RNStatusBar.setBackgroundColor(colors.background);
+        }
+      };
+    }, [])
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+    <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+      <LinearGradient
+        colors={[colors.primary, colors.primaryDark]}
+        start={{ x: 0, y: 0 }}
+        end={GRADIENT_60_END}
+        style={[styles.headerGradient, { paddingTop: insets.top }]}
       >
+        <View style={styles.headerOrbs} pointerEvents="none">
+          <View style={styles.headerOrbLarge} />
+          <View style={styles.headerOrbMid} />
+          <View style={styles.headerOrbTiny} />
+        </View>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.avatar} accessibilityLabel="Your profile">
               <Text style={styles.avatarText}>{PARENT_FIRST_NAME.slice(0, 1)}</Text>
             </View>
-            <View>
-              <Text style={styles.greeting}>Hello, {PARENT_FIRST_NAME}</Text>
-              <View style={styles.childRow}>
-                <Text style={styles.childName}>{MOCK_CHILD.name}</Text>
-                <Text style={styles.childMeta}> · Age {MOCK_CHILD.age}</Text>
-                <Icon name="arrow-drop-down" size={22} color={colors.textSecondary} />
-              </View>
+            <View style={styles.headerTextBlock}>
+              <Text style={styles.greetingLine}>
+                <Text style={styles.greetingPlain}>Welcome, </Text>
+                <Text style={styles.greetingNameHighlight}>{PARENT_FIRST_NAME}</Text>
+              </Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.childSelectorChip,
+                  pressed && styles.childSelectorChipPressed,
+                ]}
+                onPress={() => setChildPickerVisible(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose child. Now showing ${selectedChild.name}, age ${selectedChild.age}`}
+                accessibilityHint="Opens a list at the bottom of the screen to pick a child"
+                android_ripple={{ color: 'rgba(255,255,255,0.22)' }}
+              >
+                <View style={styles.childSelectorTextCol}>
+                  <Text style={styles.childNameInChip} numberOfLines={1}>
+                    {selectedChild.name}
+                  </Text>
+                  <Text style={styles.childMetaInChip} numberOfLines={1}>
+                    Age {selectedChild.age}
+                  </Text>
+                </View>
+                <View style={styles.childChevronPill}>
+                  <Icon
+                    name={childPickerVisible ? 'expand-less' : 'expand-more'}
+                    size={20}
+                    color="rgba(255,255,255,0.95)"
+                  />
+                </View>
+              </Pressable>
             </View>
           </View>
 
@@ -143,297 +398,389 @@ const DashboardScreen: React.FC = () => {
             accessibilityRole="button"
             accessibilityLabel="Notifications"
           >
-            <Icon name="notifications-none" size={26} color={colors.ink} />
+            <Icon name="notifications-none" size={26} color="rgba(255, 255, 255, 0.88)" />
             <View style={styles.notificationBadge} />
           </TouchableOpacity>
         </View>
+      </LinearGradient>
 
+      <ScrollView
+        style={styles.scrollMain}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+      >
         <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
           <View style={styles.hero}>
-            <View style={styles.heroCard}>
-              <View style={styles.heroTop}>
-                <View style={styles.heroTopLeft}>
-                  <Text style={styles.heroEyebrow}>Student Daily Score (SDS)</Text>
-                  <Text style={styles.heroTitle}>
-                    {MOCK_CHILD.dailyScore?.toFixed(1)} / 10
-                  </Text>
-                  <Text style={styles.heroSubtitle}>
-                    A quick snapshot of progress and tone. Small, steady moments build confidence.
-                  </Text>
-                </View>
-                <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>+{MOCK_CHILD.dailyScore}</Text>
-                  <Text style={styles.heroBadgeCaption}>today</Text>
-                </View>
-              </View>
-              <View style={styles.heroFooter}>
-                <View style={styles.ringWrap}>
-                  <ProgressCircle
-                    size={88}
-                    progress={(MOCK_CHILD.dailyScore! / 10) * 100}
-                    color={colors.ink}
-                    backgroundColor="rgba(255,255,255,0.35)"
-                    strokeWidth={7}
-                    showPercentage={false}
-                  />
-                  <View style={styles.ringCenter}>
-                    <Text style={styles.ringCenterValue}>{MOCK_CHILD.dailyScore?.toFixed(1)}</Text>
-                    <Text style={styles.ringCenterUnit}>SDS</Text>
-                  </View>
-                </View>
-                <View style={styles.heroCopy}>
-                  <Text style={styles.heroHint}>
-                    Focus on kindness first: one supportive sentence before homework makes a difference.
+            <LinearGradient
+              key={selectedChild.id}
+              colors={sdsMood.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[
+                styles.sdsCard,
+                {
+                  borderColor: sdsMood.borderColor,
+                },
+              ]}
+            >
+              <View style={styles.sdsCardTopRow}>
+                <Text style={[styles.sdsCardTitle, { color: sdsMood.titleColor }]}>SDS Score</Text>
+                <View style={[styles.sdsMoodBadge, { backgroundColor: sdsMood.badgeBg }]}>
+                  <Icon name={sdsMood.badgeIcon} size={15} color={sdsMood.badgeText} />
+                  <Text style={[styles.sdsMoodBadgeText, { color: sdsMood.badgeText }]}>
+                    {sdsMood.badge}
                   </Text>
                 </View>
               </View>
-            </View>
-          </View>
-        </Animated.View>
 
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <View style={[styles.metricStackTile, { backgroundColor: trustMeta.pillBg }]}>
-              <View style={styles.metricTitleRow}>
-                <View style={styles.metricTitleLeft}>
-                  <Icon name="verified-user" size={18} color={trustMeta.color} />
-                  <Text style={styles.metricLabel}>Trust Meter</Text>
-                </View>
+              <View style={styles.sdsCardCenter}>
+                <Text style={[styles.sdsBigNumber, { color: sdsMood.numberColor }]}>
+                  {sdsSnapshot.percent}%
+                </Text>
                 <View
-                  style={[
-                    styles.trustPill,
-                    {
-                      backgroundColor: trustMeta.pillBg,
-                      borderColor: trustMeta.pillBorder,
-                    },
-                  ]}
+                  style={styles.sdsWeekCompare}
+                  accessibilityLabel={
+                    sdsSnapshot.trend === 0
+                      ? 'No change versus last week, steady'
+                      : sdsSnapshot.trend > 0
+                        ? `Up ${sdsSnapshot.trend} percent versus last week, winning`
+                        : `Down ${Math.abs(sdsSnapshot.trend)} percent versus last week, losing`
+                  }
                 >
-                  <Text style={[styles.trustPillText, { color: trustMeta.color }]}>{trustMeta.level}</Text>
-                </View>
-              </View>
-
-              <View style={styles.ringWrapSmall}>
-                <ProgressCircle
-                  size={68}
-                  progress={trustScore}
-                  color={trustMeta.color}
-                  strokeWidth={6}
-                  backgroundColor="rgba(255,255,255,0.7)"
-                  showPercentage={false}
-                />
-                <View style={styles.ringCenterSmall}>
-                  <Text style={styles.ringCenterValueSmall}>{Math.round(trustScore)}%</Text>
-                </View>
-              </View>
-              <Text style={styles.metricSubtleText}>Reliability of parent rating behaviour.</Text>
-
-              <View style={styles.factorList}>
-                {[
-                  'Rating variation',
-                  'Balance of positive/negative scores',
-                  'Evidence participation',
-                  'Spam detection',
-                ].map((t) => (
-                  <View key={t} style={styles.factorRow}>
+                  <View style={styles.sdsWeekCompareRow}>
                     <Icon
                       name={
-                        trustMeta.level === 'High'
-                          ? 'check-circle'
-                          : trustMeta.level === 'Medium'
-                            ? 'help-outline'
-                            : 'error-outline'
+                        sdsSnapshot.trend > 0
+                          ? 'trending-up'
+                          : sdsSnapshot.trend < 0
+                            ? 'trending-down'
+                            : 'trending-flat'
                       }
-                      size={16}
-                      color={
-                        trustMeta.level === 'High'
-                          ? colors.growth
-                          : trustMeta.level === 'Medium'
-                            ? colors.primary
-                            : colors.error
-                      }
-                      style={styles.factorIcon}
+                      size={20}
+                      color={sdsMood.trendColor}
                     />
-                    <Text style={styles.factorText}>{t}</Text>
+                    <Text style={[styles.sdsWeekDeltaText, { color: sdsMood.trendColor }]}>
+                      {sdsSnapshot.trend > 0
+                        ? `+${sdsSnapshot.trend}%`
+                        : sdsSnapshot.trend < 0
+                          ? `${sdsSnapshot.trend}%`
+                          : '0%'}
+                      <Text style={[styles.sdsWeekVsText, { color: sdsMood.hintColor }]}>
+                        {' '}
+                        vs last week
+                      </Text>
+                    </Text>
                   </View>
-                ))}
+                </View>
               </View>
-            </View>
+
+              <Text style={[styles.sdsHintLine, { color: sdsMood.hintColor }]}>
+                {sdsMood.hint(selectedChild.name)}
+              </Text>
+            </LinearGradient>
           </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <View style={[styles.metricStackTile, { backgroundColor: colors.primaryLight }]}>
-              <View style={styles.metricTitleRow}>
-                <View style={styles.metricTitleLeft}>
-                  <Icon name="autorenew" size={18} color={colors.primary} />
-                  <Text style={styles.metricLabel}>Confidence indicator</Text>
-                </View>
-                <View
-                  style={[
-                    styles.trustPill,
-                    { backgroundColor: colors.primaryLight, borderColor: 'rgba(124, 106, 232, 0.28)' },
-                  ]}
-                >
-                  <Text style={[styles.trustPillText, { color: colors.primary }]}>CF {confidenceCF.toFixed(2)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.ringWrapSmall}>
-                <ProgressCircle
-                  size={68}
-                  progress={confidencePercent}
-                  color={colors.primary}
-                  strokeWidth={6}
-                  backgroundColor="rgba(255,255,255,0.7)"
-                  showPercentage={false}
-                />
-                <View style={styles.ringCenterSmall}>
-                  <Text style={styles.ringCenterValueSmall}>
-                    {Math.round(confidencePercent)}%
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.metricSubtleText}>
-                CF = max(0.4, min(1, N/3)). Higher N stabilizes confidence.
+          <View style={styles.ratingAspectsSection}>
+            <View style={styles.ratingAspectsHeader}>
+              <Text style={styles.ratingAspectsTitle}>Today&apos;s behaviour</Text>
+              <Text style={styles.ratingAspectsSubtitle}>
+                Rate each area — your main daily action.
               </Text>
             </View>
+            <View style={styles.ratingAspectsGrid}>
+              {DASHBOARD_RATING_ASPECTS.map((aspect, index) => {
+                const d = aspect.weekDeltaPercent;
+                const deltaColor =
+                  d > 0 ? colors.growth : d < 0 ? colors.error : colors.textMuted;
+                const deltaLabel = d > 0 ? `+${d}%` : `${d}%`;
+                const isLastRowFullWidth =
+                  index === DASHBOARD_RATING_ASPECTS.length - 1 &&
+                  DASHBOARD_RATING_ASPECTS.length % 2 === 1;
+                return (
+                  <Pressable
+                    key={aspect.id}
+                    onPress={() => openAspectRating(aspect)}
+                    style={({ pressed }) => [
+                      styles.ratingAspectCard,
+                      isLastRowFullWidth
+                        ? styles.ratingAspectCardFullWidth
+                        : { width: aspectTileWidth },
+                      {
+                        backgroundColor: aspect.softBg,
+                        borderColor: aspect.borderColor,
+                      },
+                      pressed && styles.ratingAspectCardPressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${aspect.name}, ${aspect.progressPercent} percent, ${
+                      d >= 0 ? '+' : ''
+                    }${d} percent vs last week.`}
+                    accessibilityHint="Opens the rating sheet for this behaviour area"
+                  >
+                    <View style={[styles.ratingAspectTopAccent, { backgroundColor: aspect.accent }]} />
+                    <View style={styles.ratingAspectTileBody}>
+                      <View
+                        style={[styles.ratingAspectIconWrap, { backgroundColor: `${aspect.accent}28` }]}
+                      >
+                        <Icon name={aspect.iconName} size={22} color={aspect.iconTint} />
+                      </View>
+                      <Text style={styles.ratingAspectName} numberOfLines={2}>
+                        {aspect.name}
+                      </Text>
+                      <Text style={styles.ratingAspectPercent}>{aspect.progressPercent}%</Text>
+                      <View style={styles.ratingAspectDeltaLine}>
+                        <Text style={[styles.ratingAspectDelta, { color: deltaColor }]}>
+                          {deltaLabel}
+                        </Text>
+                        <Text style={styles.ratingAspectVs}> vs last week</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
           <View style={styles.sectionTight}>
-            <Card variant="elevated" style={styles.chartCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.sectionTitle}>Weekly behaviour</Text>
-                <Text style={styles.cardHeaderRightText}>{selectedDay.label}</Text>
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.weekStrip}
+            <View style={styles.missionCardOuter}>
+              <LinearGradient
+                colors={missionCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.missionGradient}
               >
-                {WEEK_STRIP.map((d) => {
-                  const selected = d.id === selectedDayId;
+                <View style={styles.missionOrbs} pointerEvents="none">
+                  <View style={styles.missionOrbA} />
+                  <View style={styles.missionOrbB} />
+                  <View style={styles.missionOrbC} />
+                </View>
+
+                <View style={styles.missionTopBar}>
+                  <View style={styles.missionBrandChip}>
+                    <Icon name="rocket-launch" size={18} color={colors.primary} />
+                  </View>
+                  <View style={styles.missionTopBarText}>
+                    <Text style={styles.missionKicker}>Today's Mission</Text>
+                    <Text style={styles.missionKickerSub}>Small steps · big habits</Text>
+                  </View>
+                  {todayMissionStatus !== 'pending' ? (
+                    <View
+                      style={[
+                        styles.missionStatusChip,
+                        todayMissionStatus === 'done'
+                          ? styles.missionStatusChipDone
+                          : styles.missionStatusChipMissed,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.missionStatusChipText,
+                          todayMissionStatus === 'done'
+                            ? { color: colors.growth }
+                            : { color: colors.warning },
+                        ]}
+                      >
+                        {todayMissionStatus === 'done' ? 'Done' : 'Missed'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.missionGlassPanel}>
+
+                  <Text style={styles.missionTitle}>{todayMission.title}</Text>
+                  <Text style={styles.missionDetail}>{todayMission.detail}</Text>
+
+                  {todayMissionStatus === 'pending' ? (
+                    <View style={styles.missionButtonsRow}>
+                      <View style={styles.missionButtonCol}>
+                        <Button
+                          title="Done"
+                          variant="primary"
+                          size="small"
+                          onPress={() => setTodayMissionForSelectedChild('done')}
+                          style={{ ...styles.missionButtonDone, backgroundColor: colors.growth }}
+                        />
+                      </View>
+                      <View style={styles.missionButtonCol}>
+                        <Button
+                          title="Missed"
+                          variant="primary"
+                          size="small"
+                          onPress={() => setTodayMissionForSelectedChild('missed')}
+                          style={{ ...styles.missionButtonMissed, backgroundColor: colors.error }}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.missionFeedbackBox,
+                        todayMissionStatus === 'done'
+                          ? styles.missionFeedbackBoxDone
+                          : styles.missionFeedbackBoxMissed,
+                      ]}
+                    >
+                      <Icon
+                        name={todayMissionStatus === 'done' ? 'emoji-events' : 'favorite'}
+                        size={22}
+                        color={todayMissionStatus === 'done' ? colors.growth : colors.warning}
+                      />
+                      <Text style={styles.missionFeedbackText}>
+                        {todayMissionStatus === 'done' ? MISSION_FEEDBACK_DONE : MISSION_FEEDBACK_MISSED}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
+          <View style={styles.sectionTight}>
+            <WeeklyAspectProgressChart
+              aspects={DASHBOARD_RATING_ASPECTS}
+              series={weeklyAspectProgressSeries}
+            />
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
+          <View style={styles.sectionTight}>
+            <AIInsightsCard payload={aiInsightsPayload} />
+          </View>
+        </Animated.View>
+      </ScrollView>
+
+      <AspectRatingSheet
+        visible={ratingSheetAspect !== null}
+        aspect={ratingSheetAspect}
+        onClose={closeAspectRating}
+        onSave={handleAspectRatingSave}
+        onVoiceNotePress={handleVoiceNotePlaceholder}
+      />
+
+      <Modal
+        visible={childPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeChildPicker}
+      >
+        <View style={styles.childPickerRoot}>
+          <Pressable
+            style={styles.childPickerBackdrop}
+            onPress={closeChildPicker}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss child list"
+          />
+          <View style={styles.childPickerSheetWrap} pointerEvents="box-none">
+            <View
+              style={[
+                styles.childPickerSheetBottom,
+                { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+              ]}
+              accessibilityViewIsModal
+            >
+              <View style={styles.childPickerGrabber} />
+              <Text style={styles.childPickerTitle}>Who are you viewing?</Text>
+              <Text style={styles.childPickerSubtitle}>
+                SDS, missions, and scores match the child you select.
+              </Text>
+              <ScrollView
+                style={styles.childPickerList}
+                contentContainerStyle={styles.childPickerListContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+              >
+                {MOCK_CHILDREN.map((child) => {
+                  const isSelected = child.id === selectedChildId;
                   return (
                     <Pressable
-                      key={d.id}
-                      onPress={() => setSelectedDayId(d.id)}
-                      style={[styles.dayPill, selected && styles.dayPillSelected]}
+                      key={child.id}
+                      style={[styles.childPickerRow, isSelected && styles.childPickerRowSelected]}
+                      onPress={() => handleSelectChild(child.id)}
                       accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={`${d.label}`}
+                      accessibilityState={{ selected: isSelected }}
+                      accessibilityLabel={`${child.name}, age ${child.age}${isSelected ? ', selected' : ''}`}
+                      android_ripple={{ color: colors.primaryLight }}
                     >
-                      <Text style={[styles.dayPillLabel, selected && styles.dayPillLabelSelected]}>
-                        {d.short}
-                      </Text>
+                      <View style={styles.childPickerRowLeft}>
+                        <View
+                          style={[
+                            styles.childPickerAvatar,
+                            isSelected && styles.childPickerAvatarSelected,
+                          ]}
+                        >
+                          <Text style={styles.childPickerAvatarText}>
+                            {child.name.trim().slice(0, 1).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.childPickerRowMain}>
+                          <Text style={styles.childPickerRowName}>{child.name}</Text>
+                          <Text style={styles.childPickerRowMeta}>Age {child.age}</Text>
+                        </View>
+                      </View>
+                      {isSelected ? (
+                        <Icon name="check-circle" size={26} color={colors.primary} />
+                      ) : (
+                        <Icon name="radio-button-unchecked" size={24} color={colors.textMuted} />
+                      )}
                     </Pressable>
                   );
                 })}
               </ScrollView>
-
-              <View style={styles.weeklyChart}>
-                {WEEK_STRIP.map((day) => (
-                  <WeeklyDayBar key={day.id} day={day} selectedDayId={selectedDayId} />
-                ))}
-              </View>
-
-              <View style={styles.weeklySummary}>
-                <Text style={styles.weeklySummaryText}>
-                  {selectedDay.label}: <Text style={styles.weeklySummaryEm}>{selectedDay.score.toFixed(1)}</Text> / 10
-                </Text>
-              </View>
-            </Card>
+              <Pressable
+                style={styles.childPickerCancelButton}
+                onPress={closeChildPicker}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+                android_ripple={{ color: colors.surfaceMuted }}
+              >
+                <Text style={styles.childPickerCancelText}>Cancel</Text>
+              </Pressable>
+            </View>
           </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <Card variant="elevated" style={styles.aspectCard}>
-              <Text style={styles.sectionTitle}>Aspect breakdown chart</Text>
-              {ASPECTS.map((aspect) => (
-                <View key={aspect.id} style={styles.aspectRow}>
-                  <View style={[styles.aspectDot, { backgroundColor: aspect.tone }]} />
-                  <Text style={styles.aspectName}>{aspect.name}</Text>
-                  <View style={styles.aspectBarContainer}>
-                    <View
-                      style={[
-                        styles.aspectBar,
-                        {
-                          width: `${(aspect.score / 10) * 100}%`,
-                          backgroundColor: colors.ink,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.aspectScore}>{aspect.score}</Text>
-                </View>
-              ))}
-            </Card>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <Card variant="elevated" style={styles.familyCard}>
-              <View style={styles.metricHeaderRow}>
-                <View style={[styles.metricIconWrap, { backgroundColor: colors.mintSoft }]}>
-                  <Icon name="groups" size={20} color={colors.ink} />
-                </View>
-                <Text style={styles.sectionTitle}>Family Score (FS)</Text>
-              </View>
-
-              <View style={styles.familyRingRow}>
-                <View style={styles.familyRingWrap}>
-                  <ProgressCircle
-                    size={78}
-                    progress={MOCK_FAMILY_SCORE}
-                    color={colors.ink}
-                    strokeWidth={7}
-                    backgroundColor="rgba(255,255,255,0.55)"
-                    showPercentage={false}
-                  />
-                  <View style={styles.ringCenterSmall}>
-                    <Text style={styles.ringCenterValueSmall}>{MOCK_FAMILY_SCORE}%</Text>
-                  </View>
-                </View>
-                <View style={styles.familyCopy}>
-                  <Text style={styles.familyHint}>
-                    Overall home harmony from routines, tone, and consistency.
-                  </Text>
-                  <Text style={styles.familyMiniLabel}>Best next step</Text>
-                  <Text style={styles.familyMiniValue}>End with one shared gratitude moment.</Text>
-                </View>
-              </View>
-            </Card>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <Card style={styles.coachCard}>
-              <View style={styles.coachHeader}>
-                <View style={styles.coachIcon}>
-                  <Icon
-                    name={MOCK_AI_GUIDANCE.type === 'warning' ? 'warning' : MOCK_AI_GUIDANCE.type === 'tip' ? 'lightbulb' : 'auto-awesome'}
-                    size={22}
-                    color={colors.ink}
-                  />
-                </View>
-                <Text style={styles.sectionTitle}>{MOCK_AI_GUIDANCE.title}</Text>
-              </View>
-              <Text style={styles.coachBody}>{MOCK_AI_GUIDANCE.message}</Text>
-              <Button title="Open guidance" variant="secondary" size="small" onPress={handleViewGuidance} />
-            </Card>
-          </View>
-        </Animated.View>
-      </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 export default DashboardScreen;
+
+function SdsAnimatedProgressBar({
+  targetPercent,
+  fillColor,
+  trackColor,
+}: {
+  targetPercent: number;
+  fillColor: string;
+  trackColor: string;
+}) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = 0;
+    progress.value = withTiming(Math.min(100, Math.max(0, targetPercent)), { duration: 1100 });
+  }, [targetPercent, progress]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${progress.value}%`,
+  }));
+
+  return (
+    <View style={[styles.sdsBarTrack, { backgroundColor: trackColor }]} accessibilityRole="progressbar">
+      <Animated.View style={[styles.sdsBarFill, fillStyle, { backgroundColor: fillColor }]} />
+    </View>
+  );
+}
 
 function WeeklyDayBar({
   day,
@@ -478,151 +825,410 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  scrollMain: {
+    flex: 1,
+  },
   scrollContent: {
     paddingTop: spacing.sm,
   },
+  headerGradient: {
+    width: '100%',
+    marginBottom: spacing.sm,
+    borderBottomLeftRadius: borderRadius.xl,
+    borderBottomRightRadius: borderRadius.xl,
+    overflow: 'hidden',
+  },
+  headerOrbs: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  headerOrbLarge: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    top: -100,
+    right: -72,
+  },
+  headerOrbMid: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(232, 228, 255, 0.16)',
+    bottom: 10,
+    left: 12,
+  },
+  headerOrbTiny: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    top: 18,
+    left: '38%',
+  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+    zIndex: 1,
+    gap: spacing.md,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     flex: 1,
+    minWidth: 0,
+    paddingRight: spacing.xs,
+  },
+  headerTextBlock: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+    paddingRight: spacing.sm,
   },
   avatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.surface,
+  },
+  greetingLine: {
+    width: '100%',
+    textAlign: 'left',
+    marginBottom: spacing.sm,
+  },
+  greetingWave: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  greetingPlain: {
+    ...textStyles.bodyMedium,
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontWeight: '500',
+  },
+  greetingNameHighlight: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.surface,
+    letterSpacing: -0.3,
+  },
+  childSelectorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    maxWidth: '100%',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingRight: 10,
+    minHeight: 44,
+    borderRadius: borderRadius.large,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.32)',
+  },
+  childSelectorChipPressed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+  },
+  childSelectorTextCol: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+  },
+  childNameInChip: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.surface,
+    letterSpacing: -0.15,
+    textAlign: 'left',
+  },
+  childMetaInChip: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.65)',
+    marginTop: 2,
+    textAlign: 'left',
+  },
+  childChevronPill: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  childPickerRoot: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  childPickerBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13, 13, 13, 0.5)',
+  },
+  childPickerSheetWrap: {
+    width: '100%',
+    maxHeight: '88%',
+  },
+  childPickerSheetBottom: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+      },
+      android: { elevation: 18 },
+      default: {},
+    }),
+  },
+  childPickerGrabber: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.surfaceMuted,
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  childPickerTitle: {
+    ...textStyles.headingMedium,
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ink,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  childPickerSubtitle: {
+    ...textStyles.bodyMedium,
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  childPickerList: {
+    maxHeight: 320,
+  },
+  childPickerListContent: {
+    gap: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  childPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
+    backgroundColor: colors.background,
+  },
+  childPickerRowSelected: {
     backgroundColor: colors.lavenderSoft,
+    borderColor: 'rgba(124, 106, 232, 0.45)',
+  },
+  childPickerRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+    minWidth: 0,
+  },
+  childPickerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
-  avatarText: {
+  childPickerAvatarSelected: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  childPickerAvatarText: {
     fontSize: 18,
+    fontWeight: '800',
+    color: colors.ink,
+  },
+  childPickerRowMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  childPickerRowName: {
+    ...textStyles.bodyLarge,
     fontWeight: '700',
     color: colors.ink,
   },
-  greeting: {
-    ...textStyles.bodyMedium,
+  childPickerRowMeta: {
+    ...textStyles.caption,
     color: colors.textSecondary,
-  },
-  childRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginTop: 2,
   },
-  childName: {
-    ...textStyles.headingMedium,
-    fontSize: 20,
+  childPickerCancelButton: {
+    marginTop: spacing.sm,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.large,
+    backgroundColor: colors.surfaceMuted,
   },
-  childMeta: {
-    ...textStyles.bodyMedium,
-    color: colors.textMuted,
+  childPickerCancelText: {
+    ...textStyles.bodyLarge,
+    fontWeight: '700',
+    color: colors.textSecondary,
   },
   iconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surface,
+    flexShrink: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.error,
+    borderWidth: 1.5,
+    borderColor: 'rgba(20, 16, 28, 0.85)',
   },
   hero: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
   },
-  heroCard: {
-    backgroundColor: colors.lavenderSoft,
+  sdsCard: {
     borderRadius: borderRadius.xxl,
     padding: spacing.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(124, 106, 232, 0.18)',
+    overflow: 'hidden',
   },
-  heroTop: {
+  sdsCardTopRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    alignItems: 'center',
+    marginBottom: spacing.md,
   },
-  heroTopLeft: {
-    width: '70%'
-  },
-  heroEyebrow: {
+  sdsCardTitle: {
     ...textStyles.caption,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  heroTitle: {
-    ...textStyles.hero,
-    fontSize: 24,
-    marginTop: spacing.xs,
-  },
-  heroSubtitle: {
-    ...textStyles.bodyLarge,
-    marginTop: spacing.sm,
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  heroBadge: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.large,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  heroBadgeText: {
-    fontSize: 22,
     fontWeight: '700',
-    color: colors.ink,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 2,
+    paddingRight: spacing.sm,
   },
-  heroBadgeCaption: {
-    ...textStyles.caption,
-    color: colors.textMuted,
-  },
-  heroFooter: {
+  sdsMoodBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    gap: spacing.md,
+    flexShrink: 0,
+    maxWidth: '56%',
+    gap: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
   },
-  heroCopy: {
-    flex: 1,
+  sdsMoodBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.15,
+    flexShrink: 1,
   },
-  heroHint: {
-    ...textStyles.bodyMedium,
-    color: colors.textSecondary,
+  sdsCardCenter: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
     marginBottom: spacing.sm,
-    lineHeight: 22,
   },
-  ringWrap: {
-    width: 92,
-    height: 92,
+  sdsBigNumber: {
+    fontSize: 52,
+    fontWeight: '800',
+    letterSpacing: -1.5,
+    lineHeight: 58,
+    textAlign: 'center',
+    width: '100%',
+    marginBottom: spacing.md,
+  },
+  sdsWeekCompare: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sdsWeekCompareRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  sdsWeekDeltaText: {
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  sdsWeekVsText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sdsOutcomeLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  sdsHintLine: {
+    ...textStyles.bodyMedium,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: spacing.lg,
+  },
+  sdsBarTrack: {
+    width: '100%',
+    height: 12,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  sdsBarFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
   },
   ringWrapSmall: {
     width: 78,
@@ -630,15 +1236,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-  },
-  ringCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   ringCenterSmall: {
     position: 'absolute',
@@ -648,18 +1245,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-  },
-  ringCenterValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.ink,
-    lineHeight: 26,
-  },
-  ringCenterUnit: {
-    ...textStyles.caption,
-    marginTop: -2,
-    color: colors.textSecondary,
-    fontWeight: '600',
   },
   ringCenterValueSmall: {
     fontSize: 18,
@@ -795,6 +1380,243 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingBottom: spacing.lg,
   },
+  missionCardOuter: {
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.xxl,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(17, 17, 17, 0.06)',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+      },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  missionGradient: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    position: 'relative',
+  },
+  missionOrbs: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  missionOrbA: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(124, 106, 232, 0.07)',
+    top: -40,
+    right: -28,
+  },
+  missionOrbB: {
+    position: 'absolute',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(63, 169, 122, 0.06)',
+    bottom: 36,
+    left: -18,
+  },
+  missionOrbC: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.55)',
+    top: 68,
+    left: '24%',
+  },
+  missionTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+    zIndex: 1,
+  },
+  missionBrandChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(124, 106, 232, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(124, 106, 232, 0.18)',
+  },
+  missionTopBarText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  missionKicker: {
+    ...textStyles.bodyLarge,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.2,
+  },
+  missionKickerSub: {
+    ...textStyles.caption,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  missionStatusChip: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  missionStatusChipDone: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(63, 169, 122, 0.35)',
+  },
+  missionStatusChipMissed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(232, 160, 74, 0.4)',
+  },
+  missionStatusChipText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  missionEncourageBanner: {
+    ...textStyles.bodyMedium,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
+    zIndex: 1,
+  },
+  missionGlassPanel: {
+    // backgroundColor: 'rgba(255, 255, 255,0.8)',
+    backgroundColor: colors.lavenderSoft,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+    zIndex: 1,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.06,
+        shadowRadius: 12,
+      },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  missionPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  missionPanelLabel: {
+    ...textStyles.caption,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  missionTitle: {
+    ...textStyles.headingMedium,
+    fontSize: 19,
+    fontWeight: '800',
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+    width: '100%',
+    letterSpacing: -0.3,
+  },
+  missionDetail: {
+    ...textStyles.bodyMedium,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  missionButtonsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+    alignItems: 'stretch',
+  },
+  missionButtonCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  missionButtonDone: {
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1A6B4A',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.28,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+      default: {},
+    }),
+  },
+  missionButtonMissed: {
+    width: '100%',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#B83838',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.26,
+        shadowRadius: 10,
+      },
+      android: {
+        elevation: 6,
+      },
+      default: {},
+    }),
+  },
+  missionFeedbackBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    width: '100%',
+    marginTop: spacing.xs,
+    padding: spacing.md,
+    borderRadius: borderRadius.large,
+  },
+  missionFeedbackBoxDone: {
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(63, 169, 122, 0.2)',
+  },
+  missionFeedbackBoxMissed: {
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(232, 160, 74, 0.22)',
+  },
+  missionFeedbackText: {
+    ...textStyles.bodyMedium,
+    flex: 1,
+    color: colors.textPrimary,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
   metricSubtleText: {
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
@@ -832,67 +1654,105 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 16,
   },
-  factorList: {
-    marginTop: spacing.sm,
-    width: '100%',
-    gap: 6,
-  },
-  factorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  factorIcon: {
-    marginRight: 0,
-  },
-  factorText: {
-    ...textStyles.bodyMedium,
-    color: colors.textSecondary,
-    fontWeight: '500',
-    lineHeight: 18,
-  },
-  aspectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  ratingAspectsSection: {
+    marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
-  aspectDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: spacing.sm,
+  ratingAspectsHeader: {
+    marginBottom: spacing.md,
   },
-  aspectName: {
-    flex: 1,
-    ...textStyles.bodyLarge,
-    fontSize: 15,
-  },
-  aspectBarContainer: {
-    flex: 2,
-    height: 10,
-    backgroundColor: colors.surfaceMuted,
-    borderRadius: borderRadius.full,
-    marginHorizontal: spacing.sm,
-    overflow: 'hidden',
-  },
-  aspectBar: {
-    height: '100%',
-    borderRadius: borderRadius.full,
-  },
-  aspectScore: {
-    width: 28,
-    textAlign: 'right',
-    fontWeight: '700',
+  ratingAspectsTitle: {
+    ...textStyles.headingMedium,
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.ink,
+    letterSpacing: -0.3,
   },
-  aspectCard: {
-    marginHorizontal: spacing.lg,
+  ratingAspectsSubtitle: {
+    ...textStyles.bodyMedium,
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 16,
   },
-  coachCard: {
-    marginHorizontal: spacing.lg,
-    backgroundColor: colors.mintSoft,
+  ratingAspectsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: spacing.md,
+    rowGap: spacing.md,
+    justifyContent: 'flex-start',
+  },
+  ratingAspectCard: {
+    borderRadius: borderRadius.large,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(63, 169, 122, 0.2)',
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+      default: {},
+    }),
+  },
+  /** Odd count grid: last tile spans the row so no empty half-column gap. */
+  ratingAspectCardFullWidth: {
+    width: '100%'
+  },
+  ratingAspectCardPressed: {
+    opacity: 0.94,
+  },
+  ratingAspectTopAccent: {
+    height: 3,
+    width: '100%',
+  },
+  ratingAspectTileBody: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    alignItems: 'center',
+  },
+  ratingAspectIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  ratingAspectName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.ink,
+    letterSpacing: -0.15,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+    width: '100%',
+  },
+  ratingAspectPercent: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+    marginBottom: 2,
+  },
+  ratingAspectDeltaLine: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ratingAspectDelta: {
+    fontSize: 12,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  ratingAspectVs: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textMuted,
   },
   familyCard: {
     marginHorizontal: spacing.lg,
@@ -946,28 +1806,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
-  },
-  coachHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  coachIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  coachBody: {
-    ...textStyles.bodyLarge,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 24,
   },
   announcementItem: {
     flexDirection: 'row',

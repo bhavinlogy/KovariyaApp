@@ -170,6 +170,7 @@ const AspectPanel = memo(function AspectPanel({
             onChangeText={(txt) => onNoteChange(aspect.id, txt)}
             multiline
             numberOfLines={4}
+            placeholderTextColor={colors.textMuted}
           />
         </View>
 

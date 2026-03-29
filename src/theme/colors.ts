@@ -51,6 +51,10 @@ export const colors = {
   // Legacy keys kept for gradual refactors in components
   primaryGradient: ['#7C6AE8', '#5E4FD4'] as const,
   successGradient: ['#3FA97A', '#2C8F63'] as const,
+  /** SDS / streak cards — soft coral → deeper rose (loss / “needs attention”) */
+  failureGradient: ['#FFD4CC', '#E89590', '#C75C5C'] as const,
+  /** SDS — steady / flat week (neutral, calm) */
+  neutralSdsGradient: ['#F3F2F7', '#E8E4FF', '#DDD6F8'] as const,
   shadow: 'rgba(0, 0, 0, 0.06)',
   shadowDark: 'rgba(0, 0, 0, 0.1)',
 };
