@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import {
   spacing,
   textStyles,
   borderRadius,
+  shadows,
 } from '../theme';
 import {
   type RatingAspectDefinition,
@@ -30,11 +31,21 @@ import {
 } from '../data/aspectRating';
 import { useToast } from '../context/ToastContext';
 
+const NEXT_STEP_TOOLTIP_MS = 4000;
+const NEXT_STEP_POPOVER_ESTIMATE_H = 48;
+const NEXT_STEP_POPOVER_GAP = 8;
+const NEXT_STEP_POPOVER_MAX_W = 280;
+
 type Props = {
   visible: boolean;
   aspect: RatingAspectDefinition | null;
   onClose: () => void;
+  /** Persists a log; sheet stays open and the form resets so another entry can be added. */
   onSave: (payload: AspectRatingPayload) => void;
+  /** Same order as on the dashboard — used for “step” copy and Save & next. */
+  orderedAspects?: RatingAspectDefinition[];
+  /** When provided with a following aspect in `orderedAspects`, enables seamless handoff after save. */
+  onSaveAndNext?: (payload: AspectRatingPayload) => void;
   onVoiceNotePress?: () => void;
 };
 
@@ -43,6 +54,8 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
   aspect,
   onClose,
   onSave,
+  orderedAspects,
+  onSaveAndNext,
   onVoiceNotePress,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -52,7 +65,8 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
     const sheetPad = spacing.lg * 2;
     const gap = spacing.sm;
     const inner = windowWidth - sheetPad;
-    return Math.max(120, Math.floor((inner - gap) / 2));
+    // 2 columns × 3 rows for the six rating scale options.
+    return Math.max(140, Math.floor((inner - gap) / 2));
   }, [windowWidth]);
   const [scale, setScale] = useState<number | null>(null);
   const [reasonIds, setReasonIds] = useState<string[]>([]);
@@ -86,19 +100,139 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
     [showToast]
   );
 
-  const handleSave = useCallback(() => {
+  const resetForm = useCallback(() => {
+    setScale(null);
+    setReasonIds([]);
+    setNote('');
+  }, []);
+
+  const buildPayload = useCallback((): AspectRatingPayload | null => {
     if (!aspect || scale === null) {
-      return;
+      return null;
     }
-    onSave({
+    return {
       aspectId: aspect.id,
       scale,
       reasonIds,
       note: note.trim(),
-    });
-  }, [aspect, scale, reasonIds, note, onSave]);
+    };
+  }, [aspect, scale, reasonIds, note]);
+
+  const handleSaveEntry = useCallback(() => {
+    const payload = buildPayload();
+    if (!payload) {
+      return;
+    }
+    onSave(payload);
+    resetForm();
+  }, [buildPayload, onSave, resetForm]);
+
+  const handleSaveAndNext = useCallback(() => {
+    const payload = buildPayload();
+    if (!payload || !onSaveAndNext) {
+      return;
+    }
+    onSaveAndNext(payload);
+  }, [buildPayload, onSaveAndNext]);
 
   const canSave = aspect != null && scale !== null;
+
+  const aspectStepLabel = useMemo(() => {
+    if (!aspect || !orderedAspects?.length) {
+      return null;
+    }
+    const i = orderedAspects.findIndex((a) => a.id === aspect.id);
+    if (i < 0) {
+      return null;
+    }
+    return `Step ${i + 1} of ${orderedAspects.length}`;
+  }, [aspect, orderedAspects]);
+
+  const nextAspect = useMemo(() => {
+    if (!aspect || !orderedAspects?.length) {
+      return null;
+    }
+    const i = orderedAspects.findIndex((a) => a.id === aspect.id);
+    if (i < 0 || i >= orderedAspects.length - 1) {
+      return null;
+    }
+    return orderedAspects[i + 1];
+  }, [aspect, orderedAspects]);
+
+  const showSaveAndNext = Boolean(nextAspect && onSaveAndNext);
+
+  const prevAspectIdForTooltipRef = useRef<string | null>(null);
+  const tooltipHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveNextAnchorRef = useRef<View | null>(null);
+  const [nextStepTooltipLabel, setNextStepTooltipLabel] = useState<string | null>(null);
+  const [nextStepPopoverPos, setNextStepPopoverPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  const measureNextStepPopover = useCallback(() => {
+    saveNextAnchorRef.current?.measureInWindow((x, y, w, h) => {
+      const popoverW = Math.min(NEXT_STEP_POPOVER_MAX_W, windowWidth - spacing.lg * 2);
+      let left = x + w / 2 - popoverW / 2;
+      const pad = spacing.md;
+      left = Math.max(pad, Math.min(left, windowWidth - popoverW - pad));
+      let top = y - NEXT_STEP_POPOVER_ESTIMATE_H - NEXT_STEP_POPOVER_GAP;
+      if (top < insets.top + pad) {
+        top = y + h + NEXT_STEP_POPOVER_GAP;
+      }
+      setNextStepPopoverPos({ top, left, width: popoverW });
+    });
+  }, [insets.top, windowWidth]);
+
+  useEffect(() => {
+    if (!visible) {
+      prevAspectIdForTooltipRef.current = null;
+      setNextStepTooltipLabel(null);
+      setNextStepPopoverPos(null);
+      if (tooltipHideTimerRef.current) {
+        clearTimeout(tooltipHideTimerRef.current);
+        tooltipHideTimerRef.current = null;
+      }
+      return;
+    }
+    if (!aspect) {
+      return;
+    }
+
+    const prevId = prevAspectIdForTooltipRef.current;
+    prevAspectIdForTooltipRef.current = aspect.id;
+
+    if (prevId === null) {
+      return;
+    }
+    if (prevId === aspect.id) {
+      return;
+    }
+
+    if (nextAspect?.name) {
+      setNextStepTooltipLabel(nextAspect.name);
+      if (tooltipHideTimerRef.current) {
+        clearTimeout(tooltipHideTimerRef.current);
+      }
+      tooltipHideTimerRef.current = setTimeout(() => {
+        setNextStepTooltipLabel(null);
+        setNextStepPopoverPos(null);
+        tooltipHideTimerRef.current = null;
+      }, NEXT_STEP_TOOLTIP_MS);
+    }
+  }, [visible, aspect?.id, nextAspect?.name]);
+
+  useEffect(() => {
+    if (!nextStepTooltipLabel || !showSaveAndNext) {
+      setNextStepPopoverPos(null);
+      return;
+    }
+    const id = requestAnimationFrame(() => {
+      measureNextStepPopover();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [nextStepTooltipLabel, showSaveAndNext, measureNextStepPopover, aspect?.id]);
 
   const title = useMemo(
     () => (aspect ? `${aspect.name} · How was behaviour today?` : ''),
@@ -109,7 +243,12 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
     return null;
   }
 
+  const showNextStepPopoverModal = Boolean(
+    nextStepTooltipLabel && nextStepPopoverPos && showSaveAndNext
+  );
+
   return (
+    <>
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.root}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss" />
@@ -128,10 +267,31 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
           ]}
         >
           <View style={styles.grabber} />
-          <Text style={styles.sheetTitle} numberOfLines={2}>
-            {title}
+          <View style={styles.sheetTitleRow}>
+            <Text style={styles.sheetTitle} numberOfLines={2}>
+              {title}
+            </Text>
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.closeButton,
+                pressed && styles.closeButtonPressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={8}
+              android_ripple={{ color: 'rgba(0,0,0,0.06)', borderless: true }}
+            >
+              <Icon name="close" size={22} color={colors.ink} />
+            </Pressable>
+          </View>
+          {aspectStepLabel ? (
+            <Text style={styles.sheetStep}>{aspectStepLabel}</Text>
+          ) : null}
+          <Text style={styles.sheetHint}>
+            Pick one rating and up to two reasons. Each save adds a new log—you can submit again for this
+            aspect anytime today.
           </Text>
-          <Text style={styles.sheetHint}>Pick one rating, up to two reasons, then save.</Text>
 
           <ScrollView
             style={styles.scroll}
@@ -140,19 +300,25 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
             nestedScrollEnabled
           >
             <Text style={styles.blockLabel}>Rating</Text>
+            <Text style={styles.ratingHint}>Tap a score to choose points</Text>
             <View style={styles.scaleGrid}>
               {RATING_SCALE_OPTIONS.map((opt) => {
                 const selected = scale === opt.value;
                 const neg = opt.tier === 'negative';
+                const ripple = neg
+                  ? { color: 'rgba(220, 38, 38, 0.18)', borderless: false }
+                  : { color: 'rgba(22, 163, 74, 0.18)', borderless: false };
                 return (
                   <Pressable
                     key={opt.value}
                     onPress={() => setScale(opt.value)}
-                    style={[
+                    android_ripple={ripple}
+                    style={({ pressed }) => [
                       styles.scaleBtn,
                       { width: scaleBtnWidth },
                       neg ? styles.scaleBtnNegBase : styles.scaleBtnPosBase,
                       selected && (neg ? styles.scaleBtnNegSelected : styles.scaleBtnPosSelected),
+                      pressed && styles.scaleBtnPressed,
                     ]}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
@@ -177,9 +343,11 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
                         {opt.value >= 0 ? `+${opt.value}` : `${opt.value}`} pts
                       </Text>
                     </View>
-                    {selected ? (
+                    {/* {selected ? (
                       <Icon name="check-circle" size={22} color={neg ? '#B91C1C' : '#15803D'} />
-                    ) : null}
+                    ) : (
+                      <Icon name="touch-app" size={20} color={neg ? 'rgba(153, 27, 27, 0.45)' : 'rgba(22, 101, 52, 0.45)'} />
+                    )} */}
                   </Pressable>
                 );
               })}
@@ -196,7 +364,13 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
                   <Pressable
                     key={c.id}
                     onPress={() => toggleReason(c.id)}
-                    style={[styles.chip, styles.chipPos, on && styles.chipPosOn]}
+                    android_ripple={{ color: 'rgba(22, 163, 74, 0.14)', borderless: false }}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      styles.chipPos,
+                      on && styles.chipPosOn,
+                      pressed && styles.chipPressed,
+                    ]}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: on }}
                   >
@@ -207,6 +381,7 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
                 );
               })}
             </View>
+
             <Text style={styles.reasonHint}>Needs work</Text>
             <View style={styles.chipWrap}>
               {REASON_CHIPS_NEGATIVE.map((c) => {
@@ -215,7 +390,13 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
                   <Pressable
                     key={c.id}
                     onPress={() => toggleReason(c.id)}
-                    style={[styles.chip, styles.chipNeg, on && styles.chipNegOn]}
+                    android_ripple={{ color: 'rgba(220, 38, 38, 0.14)', borderless: false }}
+                    style={({ pressed }) => [
+                      styles.chip,
+                      styles.chipNeg,
+                      on && styles.chipNegOn,
+                      pressed && styles.chipPressed,
+                    ]}
                     accessibilityRole="checkbox"
                     accessibilityState={{ checked: on }}
                   >
@@ -239,29 +420,110 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
               textAlignVertical="top"
             />
 
-            <Pressable
-              style={styles.voiceRow}
-              onPress={onVoiceNotePress}
-              accessibilityRole="button"
-              accessibilityLabel="Record voice note"
-            >
-              <Icon name="mic" size={22} color={colors.primary} />
-              <Text style={styles.voiceText}>Record voice note (optional)</Text>
-              <Icon name="chevron-right" size={22} color={colors.textMuted} />
-            </Pressable>
+            {onVoiceNotePress ? (
+              <Pressable
+                style={styles.voiceRow}
+                onPress={onVoiceNotePress}
+                accessibilityRole="button"
+                accessibilityLabel="Record voice note"
+              >
+                <Icon name="mic" size={22} color={colors.primary} />
+                <Text style={styles.voiceText}>Record voice note (optional)</Text>
+                <Icon name="chevron-right" size={22} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
           </ScrollView>
 
-          <Button
-            title="Save"
-            variant="primary"
-            onPress={handleSave}
-            disabled={!canSave}
-            style={styles.saveBtn}
-          />
+          <View style={styles.saveFooter}>
+            {showSaveAndNext && nextAspect ? (
+              <View style={styles.saveFooterRow}>
+                <View style={styles.saveFooterHalf}>
+                  <Button
+                    title="Save"
+                    variant="primary"
+                    size="small"
+                    onPress={handleSaveEntry}
+                    disabled={!canSave}
+                    style={styles.footerPrimaryBtn}
+                  />
+                </View>
+                <View style={styles.saveFooterHalf}>
+                  <View
+                    ref={saveNextAnchorRef}
+                    collapsable={false}
+                    style={styles.saveNextAnchor}
+                    onLayout={() => {
+                      if (nextStepTooltipLabel) {
+                        measureNextStepPopover();
+                      }
+                    }}
+                  >
+                    <Button
+                      title="Save & Next"
+                      variant="outline"
+                      size="small"
+                      onPress={handleSaveAndNext}
+                      disabled={!canSave}
+                      style={styles.footerSecondaryBtn}
+                    />
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <Button
+                title="Save entry"
+                variant="primary"
+                size="small"
+                onPress={handleSaveEntry}
+                disabled={!canSave}
+                style={styles.footerPrimaryBtnFull}
+              />
+            )}
+          </View>
         </View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
+
+    <Modal
+      visible={showNextStepPopoverModal}
+      transparent
+      animationType="fade"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      onRequestClose={() => {
+        setNextStepTooltipLabel(null);
+        setNextStepPopoverPos(null);
+        if (tooltipHideTimerRef.current) {
+          clearTimeout(tooltipHideTimerRef.current);
+          tooltipHideTimerRef.current = null;
+        }
+      }}
+    >
+      <View style={styles.nextStepPopoverModalRoot} pointerEvents="box-none">
+        {nextStepTooltipLabel && nextStepPopoverPos ? (
+          <View
+            style={[
+              styles.nextStepPopoverModal,
+              {
+                top: nextStepPopoverPos.top,
+                left: nextStepPopoverPos.left,
+                width: nextStepPopoverPos.width,
+              },
+            ]}
+            accessibilityRole="text"
+            accessibilityLiveRegion="polite"
+            accessibilityLabel={`Next step: ${nextStepTooltipLabel}`}
+          >
+            <Text style={styles.nextStepPopoverText}>
+              Next:{' '}
+              <Text style={styles.nextStepPopoverName}>{nextStepTooltipLabel}</Text>
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </Modal>
+    </>
   );
 });
 
@@ -296,11 +558,42 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: spacing.md,
   },
+  sheetTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
   sheetTitle: {
     ...textStyles.headingMedium,
+    flex: 1,
+    minWidth: 0,
     fontSize: 18,
     fontWeight: '800',
     color: colors.ink,
+  },
+  closeButton: {
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -spacing.xs,
+    marginRight: -spacing.xs,
+    padding: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    ...shadows.small,
+  },
+  closeButtonPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.96 }],
+  },
+  sheetStep: {
+    ...textStyles.caption,
+    fontWeight: '700',
+    color: colors.primary,
     marginBottom: spacing.xs,
   },
   sheetHint: {
@@ -331,6 +624,13 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: spacing.xs,
   },
+  ratingHint: {
+    ...textStyles.caption,
+    fontSize: 12,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+    marginTop: -spacing.xs,
+  },
   scaleGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -342,29 +642,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 76,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.large,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     gap: spacing.sm,
+    overflow: 'hidden',
+  },
+  scaleBtnPressed: {
+    opacity: Platform.OS === 'ios' ? 0.9 : 1,
+    transform: [{ scale: 0.98 }],
   },
   scaleBtnNegBase: {
+    ...shadows.small,
     backgroundColor: '#FEF2F2',
-    borderColor: 'rgba(248, 113, 113, 0.35)',
+    borderColor: 'rgba(252, 165, 165, 0.85)',
   },
   scaleBtnPosBase: {
+    ...shadows.small,
     backgroundColor: '#F0FDF4',
-    borderColor: 'rgba(74, 222, 128, 0.35)',
+    borderColor: 'rgba(134, 239, 172, 0.9)',
   },
   scaleBtnNegSelected: {
+    ...shadows.small,
     backgroundColor: '#FEE2E2',
-    borderColor: '#DC2626',
-    borderWidth: 2,
+    borderColor: '#991B1B',
+    borderWidth: 2.5,
   },
   scaleBtnPosSelected: {
+    ...shadows.small,
     backgroundColor: '#DCFCE7',
-    borderColor: '#16A34A',
-    borderWidth: 2,
+    borderColor: '#166534',
+    borderWidth: 2.5,
   },
   scaleBtnTextCol: {
     flex: 1,
@@ -399,26 +709,35 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chip: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginBottom: spacing.xs,
     borderRadius: borderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  chipPressed: {
+    opacity: 0.88,
   },
   chipPos: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    ...shadows.small,
+    backgroundColor: '#EEF6F0',
+    borderColor: 'rgba(22, 163, 74, 0.22)',
   },
   chipPosOn: {
-    backgroundColor: colors.growthLight,
-    borderColor: colors.growth,
+    backgroundColor: '#DCFCE7',
+    borderColor: '#166534',
+    borderWidth: 1.5,
   },
   chipNeg: {
-    backgroundColor: colors.surface,
-    borderColor: colors.border,
+    ...shadows.small,
+    backgroundColor: '#F9F2F2',
+    borderColor: 'rgba(232, 93, 93, 0.28)',
   },
   chipNegOn: {
-    backgroundColor: 'rgba(232, 93, 93, 0.12)',
-    borderColor: colors.error,
+    backgroundColor: '#F9F2F2',
+    borderColor: '#991B1B',
+    borderWidth: 1.5,
   },
   chipText: {
     ...textStyles.bodyMedium,
@@ -442,8 +761,9 @@ const styles = StyleSheet.create({
   noteInput: {
     ...textStyles.bodyMedium,
     minHeight: 88,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceMuted,
     borderRadius: borderRadius.large,
     padding: spacing.md,
     marginBottom: spacing.sm,
@@ -465,7 +785,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primaryDark,
   },
-  saveBtn: {
-    marginTop: spacing.xs,
+  saveFooter: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  saveNextAnchor: {
+    alignSelf: 'stretch',
+  },
+  nextStepPopoverModalRoot: {
+    flex: 1,
+  },
+  nextStepPopoverModal: {
+    position: 'absolute',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.large,
+    backgroundColor: colors.primary,
+    ...shadows.medium,
+  },
+  nextStepPopoverText: {
+    ...textStyles.bodyMedium,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.surface,
+    textAlign: 'center',
+  },
+  nextStepPopoverName: {
+    fontWeight: '800',
+    color: colors.surface,
+  },
+  saveFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  saveFooterHalf: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'flex-end',
+  },
+  footerPrimaryBtn: {
+    marginVertical: 0,
+  },
+  footerPrimaryBtnFull: {
+    marginVertical: 0,
+  },
+  footerSecondaryBtn: {
+    marginVertical: 0,
   },
 });

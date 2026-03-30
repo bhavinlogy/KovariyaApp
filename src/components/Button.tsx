@@ -120,7 +120,7 @@ export const Button = React.memo(function Button({
         return {
           backgroundColor: 'transparent',
           borderWidth: 1.5,
-          borderColor: colors.ink,
+          borderColor: colors.primary,
         };
       case 'ghost':
         return {
@@ -128,7 +128,7 @@ export const Button = React.memo(function Button({
         };
       default:
         return {
-          backgroundColor: colors.ink,
+          backgroundColor: colors.primary,
         };
     }
   };
@@ -155,7 +155,7 @@ export const Button = React.memo(function Button({
       case 'outline':
         return {
           ...baseStyle,
-          color: colors.ink,
+          color: colors.primary,
         };
       case 'ghost':
         return {

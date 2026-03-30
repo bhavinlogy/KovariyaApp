@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import * as Haptics from 'expo-haptics';
 import { Card } from './Card';
 import { colors, spacing, textStyles, borderRadius } from '../theme';
 import type { AIInsightsPayload } from '../types';
@@ -9,54 +10,101 @@ type Props = {
   payload: AIInsightsPayload;
 };
 
+type InsightTab = 'positive' | 'attention';
+
 export const AIInsightsCard = React.memo(function AIInsightsCard({ payload }: Props) {
   const { title, subtitle, sourceLabel, positive, attention } = payload;
+  const [tab, setTab] = useState<InsightTab>('positive');
+
+  const onTabChange = useCallback((next: InsightTab) => {
+    setTab(next);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const activeBlock = tab === 'positive' ? positive : attention;
 
   return (
-    <Card variant="elevated" style={styles.card}>
-      <View style={styles.topRow}>
+    <Card variant="elevated" padding={spacing.md} style={styles.card}>
+      {/* Single header cluster: icon + titles + source in one flow — less vertical stacking */}
+      <View style={styles.headerCluster}>
         <View style={styles.titleIconWrap}>
-          <Icon name="auto-awesome" size={22} color={colors.primaryDark} />
+          <Icon name="auto-awesome" size={20} color={colors.primaryDark} />
         </View>
-        <View style={styles.titleBlock}>
+        <View style={styles.headerTextBlock}>
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={styles.subtitle} numberOfLines={2}>
+            {subtitle}
+          </Text>
+          <Text style={styles.sourceMerged} numberOfLines={2}>
+            {sourceLabel}
+          </Text>
         </View>
       </View>
-      <Text style={styles.source}>{sourceLabel}</Text>
 
-      <View style={[styles.block, styles.blockPositive]}>
-        <View style={styles.blockHeader}>
-          <View style={[styles.blockIconCircle, styles.blockIconPositive]}>
-            <Icon name={positive.iconName} size={22} color={colors.growth} />
-          </View>
-          <View style={styles.blockHeaderText}>
-            <Text style={styles.blockHeadingPositive}>{positive.heading}</Text>
-            <Text style={styles.blockSub}>{positive.subheading}</Text>
-          </View>
-        </View>
-        {positive.lines.map((line) => (
-          <View key={line.id} style={styles.lineRow}>
-            <Icon name="check-circle" size={18} color={colors.growth} style={styles.lineIcon} />
-            <Text style={styles.lineText}>{line.text}</Text>
-          </View>
-        ))}
+      {/* Tabs: one section at a time — same card height feels shorter than two stacked blocks */}
+      <View style={styles.tabBar}>
+        <Pressable
+          onPress={() => onTabChange('positive')}
+          style={[styles.tab, tab === 'positive' && styles.tabActivePositive]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'positive' }}
+        >
+          <Icon
+            name="trending-up"
+            size={18}
+            color={tab === 'positive' ? colors.growth : colors.textMuted}
+          />
+          <Text style={[styles.tabLabel, tab === 'positive' && styles.tabLabelActivePositive]}>
+            Going well
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onTabChange('attention')}
+          style={[styles.tab, tab === 'attention' && styles.tabActiveAttention]}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'attention' }}
+        >
+          <Icon
+            name="flag"
+            size={18}
+            color={tab === 'attention' ? colors.warning : colors.textMuted}
+          />
+          <Text style={[styles.tabLabel, tab === 'attention' && styles.tabLabelActiveAttention]}>
+            Needs attention
+          </Text>
+        </Pressable>
       </View>
 
-      <View style={[styles.block, styles.blockAttention]}>
+      <View style={[styles.block, tab === 'positive' ? styles.blockPositive : styles.blockAttention]}>
         <View style={styles.blockHeader}>
-          <View style={[styles.blockIconCircle, styles.blockIconAttention]}>
-            <Icon name={attention.iconName} size={22} color={colors.warning} />
+          <View
+            style={[
+              styles.blockIconCircle,
+              tab === 'positive' ? styles.blockIconPositive : styles.blockIconAttention,
+            ]}
+          >
+            <Icon name={activeBlock.iconName} size={20} color={tab === 'positive' ? colors.growth : colors.warning} />
           </View>
           <View style={styles.blockHeaderText}>
-            <Text style={styles.blockHeadingAttention}>{attention.heading}</Text>
-            <Text style={styles.blockSub}>{attention.subheading}</Text>
+            <Text
+              style={tab === 'positive' ? styles.blockHeadingPositive : styles.blockHeadingAttention}
+            >
+              {activeBlock.heading}
+            </Text>
+            <Text style={styles.blockSub}>{activeBlock.subheading}</Text>
           </View>
         </View>
-        {attention.lines.map((line) => (
-          <View key={line.id} style={styles.lineRow}>
-            <Icon name="arrow-circle-right" size={18} color={colors.warning} style={styles.lineIcon} />
-            <Text style={styles.lineTextAttention}>{line.text}</Text>
+        {activeBlock.lines.map((line, i) => (
+          <View key={line.id} style={[styles.lineRow, i === 0 && styles.lineRowFirst]}>
+            <Icon
+              name={tab === 'positive' ? 'check-circle' : 'arrow-circle-right'}
+              size={18}
+              color={tab === 'positive' ? colors.growth : colors.warning}
+              style={styles.lineIcon}
+            />
+            <Text style={tab === 'positive' ? styles.lineText : styles.lineTextAttention}>
+              {line.text}
+            </Text>
           </View>
         ))}
       </View>
@@ -69,11 +117,11 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginVertical: spacing.xs,
   },
-  topRow: {
+  headerCluster: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
   titleIconWrap: {
     width: 44,
@@ -85,7 +133,7 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(124, 106, 232, 0.22)',
   },
-  titleBlock: {
+  headerTextBlock: {
     flex: 1,
     minWidth: 0,
   },
@@ -94,26 +142,64 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: colors.ink,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   subtitle: {
     ...textStyles.bodyMedium,
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 19,
+    marginBottom: spacing.xs,
   },
-  source: {
+  sourceMerged: {
     ...textStyles.caption,
     fontSize: 11,
     fontWeight: '600',
     color: colors.textMuted,
-    marginBottom: spacing.md,
     letterSpacing: 0.2,
+    lineHeight: 16,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.large,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  tabActivePositive: {
+    backgroundColor: colors.mintSoft,
+    borderColor: 'rgba(63, 169, 122, 0.45)',
+  },
+  tabActiveAttention: {
+    backgroundColor: colors.peachSoft,
+    borderColor: 'rgba(232, 160, 74, 0.5)',
+  },
+  tabLabel: {
+    ...textStyles.caption,
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.textSecondary,
+  },
+  tabLabelActivePositive: {
+    color: '#145A3D',
+  },
+  tabLabelActiveAttention: {
+    color: '#8B4514',
   },
   block: {
     borderRadius: borderRadius.large,
     padding: spacing.md,
-    marginBottom: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
   blockPositive: {
@@ -123,7 +209,6 @@ const styles = StyleSheet.create({
   blockAttention: {
     backgroundColor: colors.peachSoft,
     borderColor: 'rgba(232, 160, 74, 0.35)',
-    marginBottom: 0,
   },
   blockHeader: {
     flexDirection: 'row',
@@ -169,8 +254,8 @@ const styles = StyleSheet.create({
     ...textStyles.bodyMedium,
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 2,
-    lineHeight: 17,
+    marginTop: 4,
+    lineHeight: 19,
   },
   lineRow: {
     flexDirection: 'row',
@@ -178,21 +263,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  lineRowFirst: {
+    marginTop: 0,
+  },
   lineIcon: {
     marginTop: 2,
   },
   lineText: {
     ...textStyles.bodyMedium,
     flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 19,
     color: colors.textPrimary,
   },
   lineTextAttention: {
     ...textStyles.bodyMedium,
     flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 19,
     color: '#5C3D1E',
   },
 });

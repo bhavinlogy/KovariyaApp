@@ -1,5 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import Svg, { Polyline, Line, Circle, Text as SvgText } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Card } from './Card';
@@ -17,8 +24,17 @@ type Props = {
 
 type Selection = { aspectId: string; dayIndex: number };
 
-const PAD = { l: 30, r: 10, t: 6, b: 22 };
-const PLOT_H = 148;
+/** Short legend labels — full `aspect.name` stays on accessibility. */
+const LEGEND_SHORT: Record<string, string> = {
+  respect: 'Respect',
+  responsibility: 'Resp.',
+  kindness: 'Kindness',
+  discipline: 'Discipl.',
+  civic: 'Civic',
+};
+
+const PAD = { l: 28, r: 10, t: 6, b: 20 };
+const PLOT_H = 132;
 const Y_TICKS = [100, 75, 50, 25, 0];
 
 function buildPoints(
@@ -111,23 +127,16 @@ export const WeeklyAspectProgressChart = React.memo(function WeeklyAspectProgres
   }, [selected, aspectById, seriesMap]);
 
   return (
-    <Card variant="elevated" style={styles.card}>
-      <Text style={styles.title}>Weekly aspect progress</Text>
-      <Text style={styles.subtitle}>
-        Each line uses that area&apos;s colour. Tap a point for scores.
-      </Text>
-
-      <View style={styles.legendRow}>
-        {aspects.map((a) => (
-          <View key={a.id} style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: a.accent }]} />
-            <Text style={styles.legendText} numberOfLines={1}>
-              {a.name}
-            </Text>
-          </View>
-        ))}
+    <Card variant="elevated" padding={spacing.md} style={styles.card}>
+      {/* Priority: title + context in one row — no stacked subtitle block */}
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>Weekly aspect progress</Text>
+        <Text style={styles.headerContext} numberOfLines={1}>
+          Mon–Sun
+        </Text>
       </View>
 
+      {/* Chart first: main visual without legend above it */}
       <View style={[styles.chartWrap, { height: svgH }]}>
         <Svg width={svgW} height={svgH}>
           {Y_TICKS.map((tick) => {
@@ -140,7 +149,7 @@ export const WeeklyAspectProgressChart = React.memo(function WeeklyAspectProgres
                 x2={PAD.l + plotW}
                 y2={y}
                 stroke={colors.border}
-                strokeWidth={tick === 0 || tick === 100 ? StyleSheet.hairlineWidth : 0.5}
+                strokeWidth={tick === 0 || tick === 100 ? 1 : 0.5}
                 strokeDasharray={tick === 0 || tick === 100 ? undefined : '4 6'}
                 opacity={0.85}
               />
@@ -205,10 +214,8 @@ export const WeeklyAspectProgressChart = React.memo(function WeeklyAspectProgres
           })}
 
           {WEEKLY_PROGRESS_DAYS.map((d, i) => {
-            const x =
-              WEEKLY_PROGRESS_DAYS.length === 1
-                ? PAD.l + plotW / 2
-                : PAD.l + (i / (WEEKLY_PROGRESS_DAYS.length - 1)) * plotW;
+            const n = WEEKLY_PROGRESS_DAYS.length;
+            const x = n <= 1 ? PAD.l + plotW / 2 : PAD.l + (i / (n - 1)) * plotW;
             return (
               <SvgText
                 key={d.id}
@@ -256,24 +263,52 @@ export const WeeklyAspectProgressChart = React.memo(function WeeklyAspectProgres
         </View>
       </View>
 
+      {/* Legend grouped in scroll — one row, no wrapping clutter */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.legendScrollContent}
+        style={styles.legendScroll}
+      >
+        {aspects.map((a) => (
+          <View
+            key={a.id}
+            style={styles.legendChip}
+            accessibilityLabel={`${a.name}: legend colour ${LEGEND_SHORT[a.id] ?? a.name}`}
+          >
+            <View style={[styles.legendSwatch, { backgroundColor: a.accent }]} />
+            <Text style={styles.legendText} numberOfLines={1}>
+              {LEGEND_SHORT[a.id] ?? a.name}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+
+      {!detail ? (
+        <Text style={styles.helperLine}>
+          Colour = behaviour area · tap a point for day score &amp; comparisons.
+        </Text>
+      ) : null}
+
       {detail ? (
         <View style={[styles.detailBox, { borderLeftColor: detail.accent }]}>
-          <Text style={styles.detailLine}>
-            <Text style={styles.detailStrong}>{detail.aspectName}</Text>
-            <Text style={styles.detailMuted}> · {detail.dayLabel}</Text>
-          </Text>
-          <Text style={styles.detailScore}>{detail.value}%</Text>
-          <Text style={styles.detailMeta}>
-            {detail.deltaPrev !== null
-              ? `vs previous day: ${detail.deltaPrev >= 0 ? '+' : ''}${detail.deltaPrev}%`
-              : 'vs previous day: —'}
-            {' · '}
-            {`vs week avg: ${detail.vsAvg >= 0 ? '+' : ''}${detail.vsAvg}%`}
-          </Text>
+          <View style={styles.detailMainRow}>
+            <View style={styles.detailTextCol}>
+              <Text style={styles.detailTitle} numberOfLines={2}>
+                {detail.aspectName} · {detail.dayLabel}
+              </Text>
+              <Text style={styles.detailMeta}>
+                {detail.deltaPrev !== null
+                  ? `vs prev day ${detail.deltaPrev >= 0 ? '+' : ''}${detail.deltaPrev}%`
+                  : 'vs prev day —'}
+                {' · '}
+                {`vs week avg ${detail.vsAvg >= 0 ? '+' : ''}${detail.vsAvg}%`}
+              </Text>
+            </View>
+            <Text style={styles.detailScore}>{detail.value}%</Text>
+          </View>
         </View>
-      ) : (
-        <Text style={styles.hint}>Tap any point to see day score and comparisons.</Text>
-      )}
+      ) : null}
     </Card>
   );
 });
@@ -283,47 +318,27 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginVertical: spacing.xs,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
   title: {
     ...textStyles.headingMedium,
     fontSize: 17,
     fontWeight: '800',
     color: colors.ink,
-    marginBottom: spacing.xs,
+    flexShrink: 1,
   },
-  subtitle: {
-    ...textStyles.bodyMedium,
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 17,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  legendSwatch: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
+  headerContext: {
     ...textStyles.caption,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.textPrimary,
-    maxWidth: 120,
+    color: colors.textMuted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
   },
   chartWrap: {
     position: 'relative',
@@ -337,6 +352,46 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
   },
+  legendScroll: {
+    marginBottom: spacing.sm,
+    marginHorizontal: -4,
+  },
+  legendScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: 4,
+  },
+  legendChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  legendSwatch: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    ...textStyles.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  helperLine: {
+    ...textStyles.caption,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 17,
+    marginBottom: spacing.sm,
+  },
   detailBox: {
     borderLeftWidth: 4,
     paddingLeft: spacing.md,
@@ -344,38 +399,35 @@ const styles = StyleSheet.create({
     paddingRight: spacing.sm,
     backgroundColor: colors.surfaceMuted,
     borderRadius: borderRadius.large,
-    marginTop: spacing.xs,
   },
-  detailLine: {
-    ...textStyles.bodyMedium,
-    fontSize: 14,
+  detailMainRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  detailStrong: {
+  detailTextCol: {
+    flex: 1,
+    minWidth: 0,
+  },
+  detailTitle: {
+    ...textStyles.bodyLarge,
+    fontSize: 15,
     fontWeight: '800',
     color: colors.ink,
-  },
-  detailMuted: {
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  detailScore: {
-    ...textStyles.headingMedium,
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.ink,
-    marginTop: 4,
+    marginBottom: 4,
   },
   detailMeta: {
     ...textStyles.caption,
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 6,
     lineHeight: 17,
   },
-  hint: {
-    ...textStyles.caption,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: spacing.xs,
+  detailScore: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.5,
   },
 });

@@ -42,6 +42,7 @@ import { Child } from '../types';
 import { useToast } from '../context/ToastContext';
 import {
   DASHBOARD_RATING_ASPECTS,
+  formatDailyRatingSum,
   type RatingAspectDefinition,
   type AspectRatingPayload,
 } from '../data/aspectRating';
@@ -213,12 +214,17 @@ const DashboardScreen: React.FC = () => {
   const { width: windowWidth } = useWindowDimensions();
   const { showToast } = useToast();
 
-  /** Two columns: section horizontal padding + one gutter between tiles. */
-  const aspectTileWidth = useMemo(() => {
+  /**
+   * Row 1: three equal columns; row 2: two equal columns.
+   * Same gap G between all neighbours so spacing is even edge-to-edge.
+   */
+  const aspectTileMetrics = useMemo(() => {
     const horizontalPadding = spacing.lg * 2;
-    const columnGap = spacing.md;
-    const w = (windowWidth - horizontalPadding - columnGap) / 2;
-    return Math.max(100, Math.floor(w));
+    const G = spacing.md;
+    const inner = windowWidth - horizontalPadding;
+    const width3 = Math.max(96, Math.floor((inner - 2 * G) / 3));
+    const width2 = Math.max(140, Math.floor((inner - G) / 2));
+    return { width3, width2, gap: G };
   }, [windowWidth]);
 
   const bottomPad = useMemo(
@@ -277,11 +283,31 @@ const DashboardScreen: React.FC = () => {
         DASHBOARD_RATING_ASPECTS.find((a) => a.id === payload.aspectId)?.name ?? 'Aspect';
       showToast({
         type: 'success',
-        message: `Saved · ${label} rated for ${selectedChild.name}`,
+        message: `Saved · ${label} for ${selectedChild.name}. You can add another log with Save entry.`,
       });
-      closeAspectRating();
     },
-    [closeAspectRating, selectedChild.name, showToast]
+    [selectedChild.name, showToast]
+  );
+
+  const handleAspectRatingSaveAndNext = useCallback(
+    (payload: AspectRatingPayload) => {
+      const label =
+        DASHBOARD_RATING_ASPECTS.find((a) => a.id === payload.aspectId)?.name ?? 'Aspect';
+      showToast({
+        type: 'success',
+        message: `Saved · ${label} for ${selectedChild.name}`,
+      });
+      const idx = DASHBOARD_RATING_ASPECTS.findIndex((a) => a.id === payload.aspectId);
+      const next =
+        idx >= 0 && idx < DASHBOARD_RATING_ASPECTS.length - 1
+          ? DASHBOARD_RATING_ASPECTS[idx + 1]
+          : null;
+      if (next) {
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setRatingSheetAspect(next);
+      }
+    },
+    [selectedChild.name, showToast]
   );
 
   const handleVoiceNotePlaceholder = useCallback(() => {
@@ -359,36 +385,34 @@ const DashboardScreen: React.FC = () => {
               <Text style={styles.avatarText}>{PARENT_FIRST_NAME.slice(0, 1)}</Text>
             </View>
             <View style={styles.headerTextBlock}>
-              <Text style={styles.greetingLine}>
+              <Text style={styles.greetingLine} numberOfLines={1}>
                 <Text style={styles.greetingPlain}>Welcome, </Text>
                 <Text style={styles.greetingNameHighlight}>{PARENT_FIRST_NAME}</Text>
               </Text>
               <Pressable
                 style={({ pressed }) => [
-                  styles.childSelectorChip,
-                  pressed && styles.childSelectorChipPressed,
+                  styles.childSelectorCompact,
+                  pressed && styles.childSelectorCompactPressed,
                 ]}
                 onPress={() => setChildPickerVisible(true)}
                 accessibilityRole="button"
                 accessibilityLabel={`Choose child. Now showing ${selectedChild.name}, age ${selectedChild.age}`}
                 accessibilityHint="Opens a list at the bottom of the screen to pick a child"
-                android_ripple={{ color: 'rgba(255,255,255,0.22)' }}
+                android_ripple={{ color: 'rgba(255,255,255,0.22)', borderless: false }}
               >
-                <View style={styles.childSelectorTextCol}>
-                  <Text style={styles.childNameInChip} numberOfLines={1}>
-                    {selectedChild.name}
-                  </Text>
-                  <Text style={styles.childMetaInChip} numberOfLines={1}>
-                    Age {selectedChild.age}
-                  </Text>
-                </View>
-                <View style={styles.childChevronPill}>
-                  <Icon
-                    name={childPickerVisible ? 'expand-less' : 'expand-more'}
-                    size={20}
-                    color="rgba(255,255,255,0.95)"
-                  />
-                </View>
+                <Icon name="child-care" size={17} color="rgba(255,255,255,0.88)" />
+                <Text style={styles.childNameCompact} numberOfLines={1}>
+                  {selectedChild.name}
+                </Text>
+                <Text style={styles.childAgeCompact} numberOfLines={1}>
+                  {' '}
+                  · Age {selectedChild.age} years
+                </Text>
+                <Icon
+                  name={childPickerVisible ? 'expand-less' : 'expand-more'}
+                  size={18}
+                  color="rgba(255,255,255,0.88)"
+                />
               </Pressable>
             </View>
           </View>
@@ -411,7 +435,190 @@ const DashboardScreen: React.FC = () => {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
       >
         <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.hero}>
+          <View style={styles.ratingAspectsSection}>
+            <View style={styles.ratingAspectsHeader}>
+              <Text style={styles.ratingAspectsTitle}>Today&apos;s behaviour</Text>
+              <Text style={styles.ratingAspectsSubtitle}>
+                Points add up when you save more than once. Tap an area to log or update.
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.ratingAspectsGrid,
+                { columnGap: aspectTileMetrics.gap, rowGap: aspectTileMetrics.gap },
+              ]}
+            >
+              {DASHBOARD_RATING_ASPECTS.map((aspect, index) => {
+                const tileW = index < 3 ? aspectTileMetrics.width3 : aspectTileMetrics.width2;
+                const sumStr = formatDailyRatingSum(aspect.dailyRatingSum);
+                const sumColor =
+                  aspect.dailyRatingSum > 0
+                    ? colors.growth
+                    : aspect.dailyRatingSum < 0
+                      ? colors.error
+                      : colors.textMuted;
+                return (
+                  <Pressable
+                    key={aspect.id}
+                    onPress={() => openAspectRating(aspect)}
+                    style={({ pressed }) => [
+                      styles.ratingAspectCard,
+                      { width: tileW },
+                      {
+                        backgroundColor: aspect.softBg,
+                        borderColor: aspect.borderColor,
+                      },
+                      pressed && styles.ratingAspectCardPressed,
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${aspect.name}, ${sumStr} points today`}
+                    accessibilityHint="Opens the rating sheet for this behaviour area"
+                  >
+                    <View style={[styles.ratingAspectTopAccent, { backgroundColor: aspect.accent }]} />
+                    <View style={styles.ratingAspectTileBody}>
+                      <View
+                        style={[styles.ratingAspectIconWrap, { backgroundColor: `${aspect.accent}28` }]}
+                      >
+                        <Icon name={aspect.iconName} size={index < 3 ? 22 : 24} color={aspect.iconTint} />
+                      </View>
+                      <Text style={styles.ratingAspectName} numberOfLines={2}>
+                        {aspect.name}
+                      </Text>
+                      <Text style={[styles.ratingAspectSum, { color: sumColor }]}>{sumStr}</Text>
+                      <Text style={styles.ratingAspectSumHint}>pts earned</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
+          <View style={styles.section}>
+            <View style={styles.missionCardOuter}>
+              <LinearGradient
+                colors={missionCardGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.missionGradient}
+              >
+                <View style={styles.missionOrbs} pointerEvents="none">
+                  <View style={styles.missionOrbA} />
+                  <View style={styles.missionOrbB} />
+                  <View style={styles.missionOrbC} />
+                </View>
+
+                <View style={styles.missionTopBar}>
+                  <View style={styles.missionBrandChip}>
+                    <Icon name="rocket-launch" size={16} color={colors.primary} />
+                  </View>
+                  <View style={styles.missionTopBarText}>
+                    <Text style={styles.missionKicker}>Today&apos;s Mission</Text>
+                    <Text style={styles.missionKickerSub}>Small steps · big habits</Text>
+                  </View>
+                  {todayMissionStatus !== 'pending' ? (
+                    <View
+                      style={[
+                        styles.missionStatusChip,
+                        todayMissionStatus === 'done'
+                          ? styles.missionStatusChipDone
+                          : styles.missionStatusChipMissed,
+                      ]}
+                    >
+                      <Icon
+                        name={todayMissionStatus === 'done' ? 'check-circle' : 'event-busy'}
+                        size={14}
+                        color={todayMissionStatus === 'done' ? colors.growth : colors.warning}
+                      />
+                      <Text
+                        style={[
+                          styles.missionStatusChipText,
+                          todayMissionStatus === 'done'
+                            ? { color: colors.growth }
+                            : { color: colors.warning },
+                        ]}
+                      >
+                        {todayMissionStatus === 'done' ? 'Done' : 'Missed'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.missionGlassPanel}>
+                  <Text style={styles.missionTitle}>{todayMission.title}</Text>
+                  <Text style={styles.missionDetail} numberOfLines={4}>
+                    {todayMission.detail}
+                  </Text>
+
+                  {todayMissionStatus === 'pending' ? (
+                    <View style={styles.missionButtonsRow}>
+                      <View style={styles.missionButtonCol}>
+                        <Button
+                          title="Done"
+                          variant="primary"
+                          size="small"
+                          icon={
+                            <Icon name="check-circle" size={18} color={colors.surface} />
+                          }
+                          onPress={() => setTodayMissionForSelectedChild('done')}
+                          style={StyleSheet.flatten([
+                            styles.missionButtonDone,
+                            {
+                              backgroundColor: colors.growth,
+                              minHeight: 38,
+                              paddingVertical: 8,
+                            },
+                          ])}
+                        />
+                      </View>
+                      <View style={styles.missionButtonCol}>
+                        <Button
+                          title="Missed"
+                          variant="primary"
+                          size="small"
+                          icon={
+                            <Icon name="highlight-off" size={18} color={colors.surface} />
+                          }
+                          onPress={() => setTodayMissionForSelectedChild('missed')}
+                          style={StyleSheet.flatten([
+                            styles.missionButtonMissed,
+                            {
+                              backgroundColor: colors.error,
+                              minHeight: 38,
+                              paddingVertical: 8,
+                            },
+                          ])}
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.missionFeedbackBox,
+                        todayMissionStatus === 'done'
+                          ? styles.missionFeedbackBoxDone
+                          : styles.missionFeedbackBoxMissed,
+                      ]}
+                    >
+                      <Icon
+                        name={todayMissionStatus === 'done' ? 'verified' : 'sentiment-dissatisfied'}
+                        size={20}
+                        color={todayMissionStatus === 'done' ? colors.growth : colors.warning}
+                      />
+                      <Text style={styles.missionFeedbackText}>
+                        {todayMissionStatus === 'done' ? MISSION_FEEDBACK_DONE : MISSION_FEEDBACK_MISSED}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
+          <View style={styles.heroSds}>
             <LinearGradient
               key={selectedChild.id}
               colors={sdsMood.gradient}
@@ -435,11 +642,8 @@ const DashboardScreen: React.FC = () => {
               </View>
 
               <View style={styles.sdsCardCenter}>
-                <Text style={[styles.sdsBigNumber, { color: sdsMood.numberColor }]}>
-                  {sdsSnapshot.percent}%
-                </Text>
                 <View
-                  style={styles.sdsWeekCompare}
+                  style={styles.sdsMainRow}
                   accessibilityLabel={
                     sdsSnapshot.trend === 0
                       ? 'No change versus last week, steady'
@@ -448,197 +652,45 @@ const DashboardScreen: React.FC = () => {
                         : `Down ${Math.abs(sdsSnapshot.trend)} percent versus last week, losing`
                   }
                 >
-                  <View style={styles.sdsWeekCompareRow}>
-                    <Icon
-                      name={
-                        sdsSnapshot.trend > 0
-                          ? 'trending-up'
+                  <Text style={[styles.sdsBigNumber, { color: sdsMood.numberColor }]}>
+                    {sdsSnapshot.percent}%
+                  </Text>
+                  <View style={styles.sdsTrendBlock}>
+                    <View style={styles.sdsWeekCompareRow}>
+                      <Icon
+                        name={
+                          sdsSnapshot.trend > 0
+                            ? 'trending-up'
+                            : sdsSnapshot.trend < 0
+                              ? 'trending-down'
+                              : 'trending-flat'
+                        }
+                        size={18}
+                        color={sdsMood.trendColor}
+                      />
+                      <Text style={[styles.sdsWeekDeltaText, { color: sdsMood.trendColor }]}>
+                        {sdsSnapshot.trend > 0
+                          ? `+${sdsSnapshot.trend}%`
                           : sdsSnapshot.trend < 0
-                            ? 'trending-down'
-                            : 'trending-flat'
-                      }
-                      size={20}
-                      color={sdsMood.trendColor}
-                    />
-                    <Text style={[styles.sdsWeekDeltaText, { color: sdsMood.trendColor }]}>
-                      {sdsSnapshot.trend > 0
-                        ? `+${sdsSnapshot.trend}%`
-                        : sdsSnapshot.trend < 0
-                          ? `${sdsSnapshot.trend}%`
-                          : '0%'}
-                      <Text style={[styles.sdsWeekVsText, { color: sdsMood.hintColor }]}>
-                        {' '}
-                        vs last week
+                            ? `${sdsSnapshot.trend}%`
+                            : '0%'}
+                        <Text style={[styles.sdsWeekVsText, { color: sdsMood.hintColor }]}>
+                          {' '}
+                          vs last week
+                        </Text>
                       </Text>
-                    </Text>
+                    </View>
                   </View>
                 </View>
               </View>
 
-              <Text style={[styles.sdsHintLine, { color: sdsMood.hintColor }]}>
+              <Text
+                style={[styles.sdsHintLine, { color: sdsMood.hintColor }]}
+                numberOfLines={2}
+              >
                 {sdsMood.hint(selectedChild.name)}
               </Text>
             </LinearGradient>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.ratingAspectsSection}>
-            <View style={styles.ratingAspectsHeader}>
-              <Text style={styles.ratingAspectsTitle}>Today&apos;s behaviour</Text>
-              <Text style={styles.ratingAspectsSubtitle}>
-                Rate each area — your main daily action.
-              </Text>
-            </View>
-            <View style={styles.ratingAspectsGrid}>
-              {DASHBOARD_RATING_ASPECTS.map((aspect, index) => {
-                const d = aspect.weekDeltaPercent;
-                const deltaColor =
-                  d > 0 ? colors.growth : d < 0 ? colors.error : colors.textMuted;
-                const deltaLabel = d > 0 ? `+${d}%` : `${d}%`;
-                const isLastRowFullWidth =
-                  index === DASHBOARD_RATING_ASPECTS.length - 1 &&
-                  DASHBOARD_RATING_ASPECTS.length % 2 === 1;
-                return (
-                  <Pressable
-                    key={aspect.id}
-                    onPress={() => openAspectRating(aspect)}
-                    style={({ pressed }) => [
-                      styles.ratingAspectCard,
-                      isLastRowFullWidth
-                        ? styles.ratingAspectCardFullWidth
-                        : { width: aspectTileWidth },
-                      {
-                        backgroundColor: aspect.softBg,
-                        borderColor: aspect.borderColor,
-                      },
-                      pressed && styles.ratingAspectCardPressed,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${aspect.name}, ${aspect.progressPercent} percent, ${
-                      d >= 0 ? '+' : ''
-                    }${d} percent vs last week.`}
-                    accessibilityHint="Opens the rating sheet for this behaviour area"
-                  >
-                    <View style={[styles.ratingAspectTopAccent, { backgroundColor: aspect.accent }]} />
-                    <View style={styles.ratingAspectTileBody}>
-                      <View
-                        style={[styles.ratingAspectIconWrap, { backgroundColor: `${aspect.accent}28` }]}
-                      >
-                        <Icon name={aspect.iconName} size={22} color={aspect.iconTint} />
-                      </View>
-                      <Text style={styles.ratingAspectName} numberOfLines={2}>
-                        {aspect.name}
-                      </Text>
-                      <Text style={styles.ratingAspectPercent}>{aspect.progressPercent}%</Text>
-                      <View style={styles.ratingAspectDeltaLine}>
-                        <Text style={[styles.ratingAspectDelta, { color: deltaColor }]}>
-                          {deltaLabel}
-                        </Text>
-                        <Text style={styles.ratingAspectVs}> vs last week</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <View style={styles.sectionTight}>
-            <View style={styles.missionCardOuter}>
-              <LinearGradient
-                colors={missionCardGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.missionGradient}
-              >
-                <View style={styles.missionOrbs} pointerEvents="none">
-                  <View style={styles.missionOrbA} />
-                  <View style={styles.missionOrbB} />
-                  <View style={styles.missionOrbC} />
-                </View>
-
-                <View style={styles.missionTopBar}>
-                  <View style={styles.missionBrandChip}>
-                    <Icon name="rocket-launch" size={18} color={colors.primary} />
-                  </View>
-                  <View style={styles.missionTopBarText}>
-                    <Text style={styles.missionKicker}>Today's Mission</Text>
-                    <Text style={styles.missionKickerSub}>Small steps · big habits</Text>
-                  </View>
-                  {todayMissionStatus !== 'pending' ? (
-                    <View
-                      style={[
-                        styles.missionStatusChip,
-                        todayMissionStatus === 'done'
-                          ? styles.missionStatusChipDone
-                          : styles.missionStatusChipMissed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.missionStatusChipText,
-                          todayMissionStatus === 'done'
-                            ? { color: colors.growth }
-                            : { color: colors.warning },
-                        ]}
-                      >
-                        {todayMissionStatus === 'done' ? 'Done' : 'Missed'}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.missionGlassPanel}>
-
-                  <Text style={styles.missionTitle}>{todayMission.title}</Text>
-                  <Text style={styles.missionDetail}>{todayMission.detail}</Text>
-
-                  {todayMissionStatus === 'pending' ? (
-                    <View style={styles.missionButtonsRow}>
-                      <View style={styles.missionButtonCol}>
-                        <Button
-                          title="Done"
-                          variant="primary"
-                          size="small"
-                          onPress={() => setTodayMissionForSelectedChild('done')}
-                          style={{ ...styles.missionButtonDone, backgroundColor: colors.growth }}
-                        />
-                      </View>
-                      <View style={styles.missionButtonCol}>
-                        <Button
-                          title="Missed"
-                          variant="primary"
-                          size="small"
-                          onPress={() => setTodayMissionForSelectedChild('missed')}
-                          style={{ ...styles.missionButtonMissed, backgroundColor: colors.error }}
-                        />
-                      </View>
-                    </View>
-                  ) : (
-                    <View
-                      style={[
-                        styles.missionFeedbackBox,
-                        todayMissionStatus === 'done'
-                          ? styles.missionFeedbackBoxDone
-                          : styles.missionFeedbackBoxMissed,
-                      ]}
-                    >
-                      <Icon
-                        name={todayMissionStatus === 'done' ? 'emoji-events' : 'favorite'}
-                        size={22}
-                        color={todayMissionStatus === 'done' ? colors.growth : colors.warning}
-                      />
-                      <Text style={styles.missionFeedbackText}>
-                        {todayMissionStatus === 'done' ? MISSION_FEEDBACK_DONE : MISSION_FEEDBACK_MISSED}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              </LinearGradient>
-            </View>
           </View>
         </Animated.View>
 
@@ -661,8 +713,10 @@ const DashboardScreen: React.FC = () => {
       <AspectRatingSheet
         visible={ratingSheetAspect !== null}
         aspect={ratingSheetAspect}
+        orderedAspects={DASHBOARD_RATING_ASPECTS}
         onClose={closeAspectRating}
         onSave={handleAspectRatingSave}
+        onSaveAndNext={handleAspectRatingSaveAndNext}
         onVoiceNotePress={handleVoiceNotePlaceholder}
       />
 
@@ -724,7 +778,7 @@ const DashboardScreen: React.FC = () => {
                         </View>
                         <View style={styles.childPickerRowMain}>
                           <Text style={styles.childPickerRowName}>{child.name}</Text>
-                          <Text style={styles.childPickerRowMeta}>Age {child.age}</Text>
+                          <Text style={styles.childPickerRowMeta}>Age {child.age} years</Text>
                         </View>
                       </View>
                       {isSelected ? (
@@ -833,7 +887,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     width: '100%',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     borderBottomLeftRadius: borderRadius.xl,
     borderBottomRightRadius: borderRadius.xl,
     overflow: 'hidden',
@@ -872,14 +926,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.sm,
+    paddingTop: spacing.xs,
     zIndex: 1,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     flex: 1,
     minWidth: 0,
     paddingRight: spacing.xs,
@@ -888,12 +943,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     alignItems: 'flex-start',
-    paddingRight: spacing.sm,
+    justifyContent: 'center',
+    paddingRight: spacing.xs,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: 'rgba(255, 255, 255, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -901,14 +957,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.35)',
   },
   avatarText: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.surface,
   },
   greetingLine: {
     width: '100%',
     textAlign: 'left',
-    marginBottom: spacing.sm,
+    marginBottom: 4,
   },
   greetingWave: {
     fontSize: 18,
@@ -916,63 +972,48 @@ const styles = StyleSheet.create({
   },
   greetingPlain: {
     ...textStyles.bodyMedium,
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.72)',
     fontWeight: '500',
   },
   greetingNameHighlight: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.surface,
     letterSpacing: -0.3,
   },
-  childSelectorChip: {
+  /** Single-line child switcher — replaces the tall two-line chip. */
+  childSelectorCompact: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'stretch',
+    alignSelf: 'flex-start',
     maxWidth: '100%',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    paddingRight: 10,
-    minHeight: 44,
-    borderRadius: borderRadius.large,
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    flexShrink: 1,
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    paddingRight: 8,
+    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.32)',
+    borderColor: 'rgba(255, 255, 255, 0.26)',
   },
-  childSelectorChipPressed: {
+  childSelectorCompactPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderColor: 'rgba(255, 255, 255, 0.45)',
+    borderColor: 'rgba(255, 255, 255, 0.38)',
   },
-  childSelectorTextCol: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
-  },
-  childNameInChip: {
-    fontSize: 15,
-    fontWeight: '700',
+  childNameCompact: {
+    fontSize: 14,
+    fontWeight: '800',
     color: colors.surface,
-    letterSpacing: -0.15,
-    textAlign: 'left',
+    letterSpacing: -0.2,
+    flexShrink: 1,
   },
-  childMetaInChip: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.65)',
-    marginTop: 2,
-    textAlign: 'left',
-  },
-  childChevronPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
+  childAgeCompact: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.62)',
+    flexShrink: 0,
   },
   childPickerRoot: {
     flex: 1,
@@ -1127,13 +1168,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(20, 16, 28, 0.85)',
   },
-  hero: {
+  /** SDS card below mission — keep vertical rhythm tight so behaviour + mission stay above the fold. */
+  heroSds: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   sdsCard: {
-    borderRadius: borderRadius.xxl,
-    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
@@ -1142,7 +1185,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   sdsCardTitle: {
     ...textStyles.caption,
@@ -1159,51 +1202,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
     maxWidth: '56%',
-    gap: 6,
+    gap: 4,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: borderRadius.full,
   },
   sdsMoodBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.15,
     flexShrink: 1,
   },
   sdsCardCenter: {
     width: '100%',
+    marginBottom: spacing.xs,
+  },
+  sdsMainRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: spacing.sm,
   },
   sdsBigNumber: {
-    fontSize: 52,
+    fontSize: 36,
     fontWeight: '800',
-    letterSpacing: -1.5,
-    lineHeight: 58,
-    textAlign: 'center',
-    width: '100%',
-    marginBottom: spacing.md,
+    letterSpacing: -1.1,
+    lineHeight: 40,
+    flexShrink: 0,
   },
-  sdsWeekCompare: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 6,
+  sdsTrendBlock: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   sdsWeekCompareRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: 4,
   },
   sdsWeekDeltaText: {
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.2,
+    letterSpacing: 0.15,
+    textAlign: 'right',
   },
   sdsWeekVsText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '600',
   },
   sdsOutcomeLabel: {
@@ -1215,10 +1263,10 @@ const styles = StyleSheet.create({
   },
   sdsHintLine: {
     ...textStyles.bodyMedium,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: 0,
   },
   sdsBarTrack: {
     width: '100%',
@@ -1382,25 +1430,25 @@ const styles = StyleSheet.create({
   },
   missionCardOuter: {
     marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.xxl,
+    borderRadius: borderRadius.xl,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(17, 17, 17, 0.06)',
     ...Platform.select({
       ios: {
         shadowColor: colors.ink,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
       },
-      android: { elevation: 3 },
+      android: { elevation: 2 },
       default: {},
     }),
   },
   missionGradient: {
-    paddingTop: spacing.lg,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
     position: 'relative',
   },
   missionOrbs: {
@@ -1409,30 +1457,30 @@ const styles = StyleSheet.create({
   },
   missionOrbA: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: 'rgba(124, 106, 232, 0.07)',
-    top: -40,
-    right: -28,
+    top: -28,
+    right: -20,
   },
   missionOrbB: {
     position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(63, 169, 122, 0.06)',
-    bottom: 36,
-    left: -18,
+    bottom: 20,
+    left: -12,
   },
   missionOrbC: {
     position: 'absolute',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.55)',
-    top: 68,
-    left: '24%',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    top: 44,
+    left: '28%',
   },
   missionTopBar: {
     flexDirection: 'row',
@@ -1442,9 +1490,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   missionBrandChip: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(124, 106, 232, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1456,10 +1504,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   missionKicker: {
-    ...textStyles.bodyLarge,
+    ...textStyles.bodyMedium,
+    fontSize: 16,
     fontWeight: '800',
     color: colors.ink,
-    letterSpacing: -0.2,
+    letterSpacing: -0.25,
   },
   missionKickerSub: {
     ...textStyles.caption,
@@ -1469,8 +1518,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   missionStatusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: borderRadius.full,
     borderWidth: StyleSheet.hairlineWidth,
   },
@@ -1500,21 +1552,20 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   missionGlassPanel: {
-    // backgroundColor: 'rgba(255, 255, 255,0.8)',
     backgroundColor: colors.lavenderSoft,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    borderRadius: borderRadius.large,
+    padding: spacing.md,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255, 255, 255, 0.95)',
     zIndex: 1,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
       },
-      android: { elevation: 2 },
+      android: { elevation: 1 },
       default: {},
     }),
   },
@@ -1534,27 +1585,28 @@ const styles = StyleSheet.create({
   },
   missionTitle: {
     ...textStyles.headingMedium,
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.primary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     width: '100%',
-    letterSpacing: -0.3,
+    letterSpacing: -0.35,
   },
   missionDetail: {
     ...textStyles.bodyMedium,
+    fontSize: 13,
     color: colors.textMuted,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: spacing.md,
+    lineHeight: 19,
+    marginBottom: spacing.sm,
     width: '100%',
   },
   missionButtonsRow: {
     flexDirection: 'row',
     width: '100%',
     gap: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: 2,
     alignItems: 'stretch',
   },
   missionButtonCol: {
@@ -1566,12 +1618,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#1A6B4A',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.28,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.22,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 6,
+        elevation: 4,
       },
       default: {},
     }),
@@ -1581,12 +1633,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#B83838',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.26,
-        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 6,
+        elevation: 4,
       },
       default: {},
     }),
@@ -1596,8 +1648,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
     width: '100%',
-    marginTop: spacing.xs,
-    padding: spacing.md,
+    marginTop: 2,
+    padding: spacing.sm,
     borderRadius: borderRadius.large,
   },
   missionFeedbackBoxDone: {
@@ -1612,9 +1664,10 @@ const styles = StyleSheet.create({
   },
   missionFeedbackText: {
     ...textStyles.bodyMedium,
+    fontSize: 13,
     flex: 1,
     color: colors.textPrimary,
-    lineHeight: 20,
+    lineHeight: 19,
     fontWeight: '500',
   },
   metricSubtleText: {
@@ -1678,8 +1731,6 @@ const styles = StyleSheet.create({
   ratingAspectsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    columnGap: spacing.md,
-    rowGap: spacing.md,
     justifyContent: 'flex-start',
   },
   ratingAspectCard: {
@@ -1697,10 +1748,6 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
-  /** Odd count grid: last tile spans the row so no empty half-column gap. */
-  ratingAspectCardFullWidth: {
-    width: '100%'
-  },
   ratingAspectCardPressed: {
     opacity: 0.94,
   },
@@ -1709,7 +1756,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   ratingAspectTileBody: {
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.xs,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
     alignItems: 'center',
@@ -1723,7 +1770,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   ratingAspectName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '800',
     color: colors.ink,
     letterSpacing: -0.15,
@@ -1731,28 +1778,20 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     width: '100%',
   },
-  ratingAspectPercent: {
+  ratingAspectSum: {
     fontSize: 20,
     fontWeight: '800',
-    color: colors.ink,
     fontVariant: ['tabular-nums'],
-    marginBottom: 2,
+    letterSpacing: -0.5,
   },
-  ratingAspectDeltaLine: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ratingAspectDelta: {
-    fontSize: 12,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  ratingAspectVs: {
-    fontSize: 11,
-    fontWeight: '500',
+  ratingAspectSumHint: {
+    fontSize: 8,
+    fontWeight: '600',
     color: colors.textMuted,
+    marginTop: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.35,
+    textAlign: 'center',
   },
   familyCard: {
     marginHorizontal: spacing.lg,

@@ -8,10 +8,15 @@ export type RatingAspectDefinition = {
   borderColor: string;
   accent: string;
   iconTint: string;
-  /** 0–100 mock progress; replace with API. */
+  /** 0–100 baseline for weekly chart mock; replace with API. */
   progressPercent: number;
-  /** Change vs last week (percentage points), e.g. +4 or -2. */
-  weekDeltaPercent: number;
+  /**
+   * Sum of rating scale points submitted today for this aspect (parents can submit multiple times).
+   * Scale values match `RATING_SCALE_OPTIONS` (e.g. −4 … +4 per submission).
+   */
+  dailyRatingSum: number;
+  /** How many rating submissions today feed into `dailyRatingSum`. */
+  dailyRatingsCount: number;
 };
 
 export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
@@ -24,7 +29,8 @@ export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
     accent: '#7C6AE8',
     iconTint: '#5E4FD4',
     progressPercent: 78,
-    weekDeltaPercent: 5,
+    dailyRatingSum: 6,
+    dailyRatingsCount: 3,
   },
   {
     id: 'responsibility',
@@ -35,7 +41,8 @@ export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
     accent: '#5B8DEF',
     iconTint: '#3B6FD9',
     progressPercent: 64,
-    weekDeltaPercent: -3,
+    dailyRatingSum: 3,
+    dailyRatingsCount: 2,
   },
   {
     id: 'kindness',
@@ -46,7 +53,8 @@ export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
     accent: '#E879A8',
     iconTint: '#D45A8F',
     progressPercent: 86,
-    weekDeltaPercent: 8,
+    dailyRatingSum: 9,
+    dailyRatingsCount: 4,
   },
   {
     id: 'discipline',
@@ -57,7 +65,8 @@ export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
     accent: '#E89550',
     iconTint: '#D9782E',
     progressPercent: 71,
-    weekDeltaPercent: 2,
+    dailyRatingSum: -2,
+    dailyRatingsCount: 3,
   },
   {
     id: 'civic',
@@ -68,9 +77,29 @@ export const DASHBOARD_RATING_ASPECTS: RatingAspectDefinition[] = [
     accent: '#3FAFA8',
     iconTint: '#2D8B85',
     progressPercent: 69,
-    weekDeltaPercent: -1,
+    dailyRatingSum: 4,
+    dailyRatingsCount: 1,
   },
 ];
+
+/** Display signed sum of daily rating points (e.g. +6, −2). */
+export function formatDailyRatingSum(sum: number): string {
+  if (sum > 0) {
+    return `+${sum}`;
+  }
+  return String(sum);
+}
+
+/** Compact copy for how many ratings parents logged today (dashboard tiles). */
+export function formatDailyRatingsSubmittedLine(count: number): string {
+  if (count <= 0) {
+    return 'Not rated today';
+  }
+  if (count === 1) {
+    return '1 rating today';
+  }
+  return `${count} ratings today`;
+}
 
 export type ScaleTier = 'negative' | 'positive';
 
@@ -83,11 +112,11 @@ export type ScaleOption = {
 /** Exact order required by product. */
 export const RATING_SCALE_OPTIONS: ScaleOption[] = [
   { label: 'Needs Attention', value: -4, tier: 'negative' },
-  { label: 'Below Expectations', value: -2, tier: 'negative' },
-  { label: 'Inconsistent', value: -1, tier: 'negative' },
-  { label: 'Improving', value: 1, tier: 'positive' },
-  { label: 'Strong', value: 2, tier: 'positive' },
   { label: 'Excellent', value: 4, tier: 'positive' },
+  { label: 'Below Expectations', value: -2, tier: 'negative' },
+  { label: 'Strong', value: 2, tier: 'positive' },
+  { label: 'Inconsistent', value: -1, tier: 'negative' },
+  { label: 'Improving', value: 1, tier: 'positive' }
 ];
 
 export type ReasonChipDef = { id: string; label: string; kind: 'positive' | 'negative' };
