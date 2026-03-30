@@ -5,7 +5,8 @@ import { View, ActivityIndicator } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
 import { LoginScreen } from '../screens/LoginScreen';
-import TabNavigator from './TabNavigator';
+import MainDrawer from './MainDrawer';
+import { MenuPlaceholderScreen } from '../screens/MenuPlaceholderScreen';
 import { colors } from '../theme';
 
 const Stack = createStackNavigator();
@@ -29,7 +30,29 @@ const AppNavigatorContent = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {isAuthenticated ? (
-        <Stack.Screen name="Main" component={TabNavigator} />
+        <>
+          <Stack.Screen name="Main" component={MainDrawer} />
+          <Stack.Screen
+            name="Sessions"
+            component={MenuPlaceholderScreen}
+            initialParams={{ title: 'Sessions' }}
+          />
+          <Stack.Screen
+            name="Quizzes"
+            component={MenuPlaceholderScreen}
+            initialParams={{ title: 'Quizzes' }}
+          />
+          <Stack.Screen
+            name="Announcements"
+            component={MenuPlaceholderScreen}
+            initialParams={{ title: 'Announcements' }}
+          />
+          <Stack.Screen
+            name="Tutorials"
+            component={MenuPlaceholderScreen}
+            initialParams={{ title: 'Tutorials' }}
+          />
+        </>
       ) : (
         <Stack.Screen name="Login" component={LoginScreen} />
       )}

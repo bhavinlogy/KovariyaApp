@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { setStatusBarStyle } from 'expo-status-bar';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, DrawerActions } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Animated, {
@@ -210,9 +210,14 @@ const WEEK_STRIP = [
 const GRADIENT_60_END = { x: 0.5, y: 0.8660254037844386 } as const;
 
 const DashboardScreen: React.FC = () => {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { showToast } = useToast();
+
+  const openDrawer = useCallback(() => {
+    navigation.dispatch(DrawerActions.openDrawer());
+  }, [navigation]);
 
   /**
    * Row 1: three equal columns; row 2: two equal columns.
@@ -380,6 +385,16 @@ const DashboardScreen: React.FC = () => {
           <View style={styles.headerOrbTiny} />
         </View>
         <View style={styles.header}>
+          <Pressable
+            onPress={openDrawer}
+            style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+            hitSlop={8}
+            android_ripple={{ color: 'rgba(255,255,255,0.18)', borderless: true }}
+          >
+            <Icon name="menu" size={26} color="rgba(255, 255, 255, 0.92)" />
+          </Pressable>
           <View style={styles.headerLeft}>
             <View style={styles.avatar} accessibilityLabel="Your profile">
               <Text style={styles.avatarText}>{PARENT_FIRST_NAME.slice(0, 1)}</Text>
@@ -930,6 +945,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xs,
     zIndex: 1,
     gap: spacing.sm,
+  },
+  menuButton: {
+    padding: spacing.xs,
+    marginRight: -spacing.xs,
+    borderRadius: borderRadius.full,
+  },
+  menuButtonPressed: {
+    opacity: 0.88,
   },
   headerLeft: {
     flexDirection: 'row',
