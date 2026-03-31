@@ -40,6 +40,7 @@ import {
 } from '../theme';
 import { Child } from '../types';
 import { useToast } from '../context/ToastContext';
+import { useChildren } from '../context/ChildrenContext';
 import {
   DASHBOARD_RATING_ASPECTS,
   formatDailyRatingSum,
@@ -48,8 +49,6 @@ import {
 } from '../data/aspectRating';
 import { getWeeklyAspectProgressSeries } from '../data/weeklyAspectProgress';
 import { getAIInsightsForChild } from '../data/aiInsights';
-
-const PARENT_FIRST_NAME = 'Sarah';
 
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
@@ -83,34 +82,6 @@ const MOCK_TODAY_MISSION_BY_CHILD: Record<string, { title: string; detail: strin
     detail: 'Give two specific compliments to someone at home today.',
   },
 };
-
-/** Mock household; replace with API + context when wired. */
-const MOCK_CHILDREN: Child[] = [
-  {
-    id: '1',
-    name: 'Emma',
-    age: 8,
-    dailyScore: 8.5,
-    trustMeter: 78,
-    confidenceIndicator: 65,
-  },
-  {
-    id: '2',
-    name: 'Lucas',
-    age: 11,
-    dailyScore: 7.8,
-    trustMeter: 62,
-    confidenceIndicator: 58,
-  },
-  {
-    id: '3',
-    name: 'Mia',
-    age: 6,
-    dailyScore: 8.9,
-    trustMeter: 85,
-    confidenceIndicator: 72,
-  },
-];
 
 const MOCK_FAMILY_SCORE = 84; // 0-100 (percentage)
 
@@ -214,6 +185,7 @@ const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { showToast } = useToast();
+  const { children, selectedChildId, setSelectedChildId, childPickerVisible, closeChildPicker } = useChildren();
 
   const openDrawer = useCallback(() => {
     navigation.dispatch(DrawerActions.openDrawer());
@@ -237,16 +209,13 @@ const DashboardScreen: React.FC = () => {
     [insets.bottom]
   );
   const [selectedDayId, setSelectedDayId] = useState<string>('thu');
-  const [selectedChildId, setSelectedChildId] = useState<string>(MOCK_CHILDREN[0].id);
-  const [childPickerVisible, setChildPickerVisible] = useState(false);
   const [todayMissionByChildId, setTodayMissionByChildId] = useState<
     Record<string, TodayMissionStatus>
   >({});
   const [ratingSheetAspect, setRatingSheetAspect] = useState<RatingAspectDefinition | null>(null);
-
   const selectedChild = useMemo(
-    () => MOCK_CHILDREN.find((c) => c.id === selectedChildId) ?? MOCK_CHILDREN[0],
-    [selectedChildId]
+    () => children.find((c) => c.id === selectedChildId) ?? children[0],
+    [children, selectedChildId]
   );
 
   const selectedDay = useMemo(() => WEEK_STRIP.find((d) => d.id === selectedDayId) ?? WEEK_STRIP[0], [
@@ -273,8 +242,6 @@ const DashboardScreen: React.FC = () => {
   const setTodayMissionForSelectedChild = useCallback((status: TodayMissionStatus) => {
     setTodayMissionByChildId((prev) => ({ ...prev, [selectedChild.id]: status }));
   }, [selectedChild.id]);
-
-  const closeChildPicker = useCallback(() => setChildPickerVisible(false), []);
 
   const openAspectRating = useCallback((aspect: RatingAspectDefinition) => {
     setRatingSheetAspect(aspect);
@@ -322,15 +289,6 @@ const DashboardScreen: React.FC = () => {
       durationMs: 3500,
     });
   }, [showToast]);
-
-  const handleSelectChild = useCallback(
-    (childId: string) => {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSelectedChildId(childId);
-      closeChildPicker();
-    },
-    [closeChildPicker]
-  );
 
   // Confidence Factor (CF) is provided as percent (0-100) on this screen.
   // Your scoring system: CF = max(0.4, min(1, N/3)).
@@ -385,51 +343,26 @@ const DashboardScreen: React.FC = () => {
           <View style={styles.headerOrbTiny} />
         </View>
         <View style={styles.header}>
-          <Pressable
-            onPress={openDrawer}
-            style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
-            accessibilityRole="button"
-            accessibilityLabel="Open menu"
-            hitSlop={8}
-            android_ripple={{ color: 'rgba(255,255,255,0.18)', borderless: true }}
-          >
-            <Icon name="menu" size={26} color="rgba(255, 255, 255, 0.92)" />
-          </Pressable>
-          <View style={styles.headerLeft}>
-            <View style={styles.avatar} accessibilityLabel="Your profile">
-              <Text style={styles.avatarText}>{PARENT_FIRST_NAME.slice(0, 1)}</Text>
-            </View>
-            <View style={styles.headerTextBlock}>
-              <Text style={styles.greetingLine} numberOfLines={1}>
-                <Text style={styles.greetingPlain}>Welcome, </Text>
-                <Text style={styles.greetingNameHighlight}>{PARENT_FIRST_NAME}</Text>
-              </Text>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.childSelectorCompact,
-                  pressed && styles.childSelectorCompactPressed,
-                ]}
-                onPress={() => setChildPickerVisible(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Choose child. Now showing ${selectedChild.name}, age ${selectedChild.age}`}
-                accessibilityHint="Opens a list at the bottom of the screen to pick a child"
-                android_ripple={{ color: 'rgba(255,255,255,0.22)', borderless: false }}
-              >
-                <Icon name="child-care" size={17} color="rgba(255,255,255,0.88)" />
-                <Text style={styles.childNameCompact} numberOfLines={1}>
-                  {selectedChild.name}
-                </Text>
-                <Text style={styles.childAgeCompact} numberOfLines={1}>
-                  {' '}
-                  · Age {selectedChild.age} years
-                </Text>
-                <Icon
-                  name={childPickerVisible ? 'expand-less' : 'expand-more'}
-                  size={18}
-                  color="rgba(255,255,255,0.88)"
-                />
-              </Pressable>
-            </View>
+          <View style={styles.headerLeftControls}>
+            <Pressable
+              onPress={openDrawer}
+              style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
+              accessibilityRole="button"
+              accessibilityLabel="Open menu"
+              hitSlop={8}
+              android_ripple={{ color: 'rgba(255,255,255,0.18)', borderless: true }}
+            >
+              <Icon name="menu" size={26} color="rgba(255, 255, 255, 0.92)" />
+            </Pressable>
+          </View>
+
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerCenterTitle} numberOfLines={1}>
+              {selectedChild.name}&apos;s Dashboard
+            </Text>
+            <Text style={styles.headerCenterSubtitle} numberOfLines={1}>
+              Analytics & reports
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -454,7 +387,7 @@ const DashboardScreen: React.FC = () => {
             <View style={styles.ratingAspectsHeader}>
               <Text style={styles.ratingAspectsTitle}>Today&apos;s behaviour</Text>
               <Text style={styles.ratingAspectsSubtitle}>
-                Points add up when you save more than once. Tap an area to log or update.
+                Tap any of the 5 cards below to log behaviour and build points. You can update multiple times throughout the day.
               </Text>
             </View>
             <View
@@ -500,7 +433,7 @@ const DashboardScreen: React.FC = () => {
                         {aspect.name}
                       </Text>
                       <Text style={[styles.ratingAspectSum, { color: sumColor }]}>{sumStr}</Text>
-                      <Text style={styles.ratingAspectSumHint}>pts earned</Text>
+                      <Text style={styles.ratingAspectSumHint}>pts</Text>
                     </View>
                   </Pressable>
                 );
@@ -725,16 +658,6 @@ const DashboardScreen: React.FC = () => {
         </Animated.View>
       </ScrollView>
 
-      <AspectRatingSheet
-        visible={ratingSheetAspect !== null}
-        aspect={ratingSheetAspect}
-        orderedAspects={DASHBOARD_RATING_ASPECTS}
-        onClose={closeAspectRating}
-        onSave={handleAspectRatingSave}
-        onSaveAndNext={handleAspectRatingSaveAndNext}
-        onVoiceNotePress={handleVoiceNotePlaceholder}
-      />
-
       <Modal
         visible={childPickerVisible}
         transparent
@@ -749,10 +672,11 @@ const DashboardScreen: React.FC = () => {
             accessibilityLabel="Dismiss child list"
           />
           <View style={styles.childPickerSheetWrap} pointerEvents="box-none">
-            <View
+            <SafeAreaView
+              edges={['bottom']}
               style={[
                 styles.childPickerSheetBottom,
-                { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+                { paddingBottom: Math.max(insets.bottom, spacing.sm) + spacing.xs },
               ]}
               accessibilityViewIsModal
             >
@@ -768,13 +692,21 @@ const DashboardScreen: React.FC = () => {
                 showsVerticalScrollIndicator={false}
                 bounces={false}
               >
-                {MOCK_CHILDREN.map((child) => {
+                {children.map((child) => {
                   const isSelected = child.id === selectedChildId;
                   return (
                     <Pressable
                       key={child.id}
                       style={[styles.childPickerRow, isSelected && styles.childPickerRowSelected]}
-                      onPress={() => handleSelectChild(child.id)}
+                      onPress={() => {
+                        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        setSelectedChildId(child.id);
+                        closeChildPicker();
+                        showToast({
+                          type: 'info',
+                          message: 'Dashboard updated for selected child.',
+                        });
+                      }}
                       accessibilityRole="button"
                       accessibilityState={{ selected: isSelected }}
                       accessibilityLabel={`${child.name}, age ${child.age}${isSelected ? ', selected' : ''}`}
@@ -814,10 +746,22 @@ const DashboardScreen: React.FC = () => {
               >
                 <Text style={styles.childPickerCancelText}>Cancel</Text>
               </Pressable>
-            </View>
+            </SafeAreaView>
           </View>
         </View>
       </Modal>
+
+      <AspectRatingSheet
+        visible={ratingSheetAspect !== null}
+        aspect={ratingSheetAspect}
+        orderedAspects={DASHBOARD_RATING_ASPECTS}
+        onClose={closeAspectRating}
+        onSave={handleAspectRatingSave}
+        onSaveAndNext={handleAspectRatingSaveAndNext}
+        onVoiceNotePress={handleVoiceNotePlaceholder}
+      />
+
+      
     </SafeAreaView>
   );
 };
@@ -953,6 +897,31 @@ const styles = StyleSheet.create({
   },
   menuButtonPressed: {
     opacity: 0.88,
+  },
+  headerLeftControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 0,
+    paddingHorizontal: spacing.sm,
+  },
+  headerCenterTitle: {
+    ...textStyles.headingMedium,
+    color: colors.surface,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  headerCenterSubtitle: {
+    ...textStyles.caption,
+    color: 'rgba(255,255,255,0.76)',
+    fontWeight: '600',
+    marginTop: 1,
   },
   headerLeft: {
     flexDirection: 'row',

@@ -13,7 +13,7 @@ const MainDrawer = () => {
       drawerType: 'front' as const,
       drawerStyle: {
         width: 300,
-        backgroundColor: colors.lavender,
+        backgroundColor: colors.primary,
       },
       overlayColor: 'rgba(13, 13, 13, 0.45)',
       sceneContainerStyle: {

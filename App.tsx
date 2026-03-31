@@ -17,6 +17,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { AppNavigator } from './src/navigation';
 import { AuthProvider } from './src/context/AuthContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { ChildrenProvider } from './src/context/ChildrenContext';
 import { queryClient } from './src/query/queryClient';
 
 function App() {
@@ -27,8 +28,10 @@ function App() {
           <SafeAreaProvider>
             <ToastProvider>
               <AuthProvider>
-                <ExpoStatusBar style="dark" />
-                <AppNavigator />
+                <ChildrenProvider>
+                  <ExpoStatusBar style="dark" />
+                  <AppNavigator />
+                </ChildrenProvider>
               </AuthProvider>
             </ToastProvider>
           </SafeAreaProvider>

@@ -289,8 +289,7 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
             <Text style={styles.sheetStep}>{aspectStepLabel}</Text>
           ) : null}
           <Text style={styles.sheetHint}>
-            Pick one rating and up to two reasons. Each save adds a new log—you can submit again for this
-            aspect anytime today.
+            Select a rating. scroll down to add reasons. You can log this multiple times today.
           </Text>
 
           <ScrollView
@@ -411,7 +410,7 @@ export const AspectRatingSheet = React.memo(function AspectRatingSheet({
             <Text style={styles.blockLabel}>Add note (optional)</Text>
             <TextInput
               style={styles.noteInput}
-              placeholder="Anything else to remember…"
+              placeholder="Other reason or extra notes."
               placeholderTextColor={colors.textMuted}
               value={note}
               onChangeText={setNote}
