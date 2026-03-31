@@ -7,7 +7,7 @@ import {
 import { FloatingTabBar } from './FloatingTabBar';
 
 import DashboardScreen from '../screens/DashboardScreen';
-import RatingScreen from '../screens/RatingScreen';
+import MissionsStack from './MissionsStack';
 import GoalsScreen from '../screens/GoalsScreen';
 import AnalyticsScreen from '../screens/AnalyticsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -53,10 +53,10 @@ const TabNavigator = () => {
         }}
       />
       <Tab.Screen
-        name="Rating"
-        component={RatingScreen}
+        name="Missions"
+        component={MissionsStack}
         options={{
-          title: 'Rating',
+          title: 'Missions',
         }}
       />
       <Tab.Screen

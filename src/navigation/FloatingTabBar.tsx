@@ -17,8 +17,8 @@ function resolveTabIconName(routeName: string): string {
   switch (routeName) {
     case 'Home':
       return 'home';
-    case 'Rating':
-      return 'star';
+    case 'Missions':
+      return 'flag';
     case 'Goals':
       return 'emoji-events';
     case 'Analytics':
