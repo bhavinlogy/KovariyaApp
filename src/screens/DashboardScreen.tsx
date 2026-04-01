@@ -14,7 +14,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { setStatusBarStyle } from 'expo-status-bar';
-import { useFocusEffect, useNavigation, DrawerActions } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Animated, {
@@ -24,6 +24,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import {
+  AppGradientHeader,
   Card,
   Button,
   ProgressCircle,
@@ -177,19 +178,11 @@ const WEEK_STRIP = [
   { id: 'sun', label: 'Sun', short: 'Su', score: 8.5 },
 ] as const;
 
-/** 60° from horizontal for LinearGradient start→end (unit direction cos60°, sin60°). */
-const GRADIENT_60_END = { x: 0.5, y: 0.8660254037844386 } as const;
-
 const DashboardScreen: React.FC = () => {
-  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { showToast } = useToast();
   const { children, selectedChildId, setSelectedChildId, childPickerVisible, closeChildPicker } = useChildren();
-
-  const openDrawer = useCallback(() => {
-    navigation.dispatch(DrawerActions.openDrawer());
-  }, [navigation]);
 
   /**
    * Row 1: three equal columns; row 2: two equal columns.
@@ -331,40 +324,10 @@ const DashboardScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
-      <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={GRADIENT_60_END}
-        style={[styles.headerGradient, { paddingTop: insets.top }]}
-      >
-        <View style={styles.headerOrbs} pointerEvents="none">
-          <View style={styles.headerOrbLarge} />
-          <View style={styles.headerOrbMid} />
-          <View style={styles.headerOrbTiny} />
-        </View>
-        <View style={styles.header}>
-          <View style={styles.headerLeftControls}>
-            <Pressable
-              onPress={openDrawer}
-              style={({ pressed }) => [styles.menuButton, pressed && styles.menuButtonPressed]}
-              accessibilityRole="button"
-              accessibilityLabel="Open menu"
-              hitSlop={8}
-              android_ripple={{ color: 'rgba(255,255,255,0.18)', borderless: true }}
-            >
-              <Icon name="menu" size={26} color="rgba(255, 255, 255, 0.92)" />
-            </Pressable>
-          </View>
-
-          <View style={styles.headerCenter}>
-            <Text style={styles.headerCenterTitle} numberOfLines={1}>
-              {selectedChild.name}&apos;s Dashboard
-            </Text>
-            <Text style={styles.headerCenterSubtitle} numberOfLines={1}>
-              Analytics & reports
-            </Text>
-          </View>
-
+      <AppGradientHeader
+        title={`${selectedChild.name}'s Dashboard`}
+        subtitle="Analytics & reports"
+        rightAccessory={
           <TouchableOpacity
             style={styles.iconButton}
             accessibilityRole="button"
@@ -373,8 +336,8 @@ const DashboardScreen: React.FC = () => {
             <Icon name="notifications-none" size={26} color="rgba(255, 255, 255, 0.88)" />
             <View style={styles.notificationBadge} />
           </TouchableOpacity>
-        </View>
-      </LinearGradient>
+        }
+      />
 
       <ScrollView
         style={styles.scrollMain}
@@ -843,85 +806,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: spacing.sm,
-  },
-  headerGradient: {
-    width: '100%',
-    marginBottom: spacing.xs,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
-    overflow: 'hidden',
-  },
-  headerOrbs: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  headerOrbLarge: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(255, 255, 255, 0.09)',
-    top: -100,
-    right: -72,
-  },
-  headerOrbMid: {
-    position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(232, 228, 255, 0.16)',
-    bottom: 10,
-    left: 12,
-  },
-  headerOrbTiny: {
-    position: 'absolute',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    top: 18,
-    left: '38%',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    paddingTop: spacing.xs,
-    zIndex: 1,
-    gap: spacing.sm,
-  },
-  menuButton: {
-    padding: spacing.xs,
-    marginRight: -spacing.xs,
-    borderRadius: borderRadius.full,
-  },
-  menuButtonPressed: {
-    opacity: 0.88,
-  },
-  headerLeftControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 0,
-    paddingHorizontal: spacing.sm,
-  },
-  headerCenterTitle: {
-    ...textStyles.headingMedium,
-    color: colors.surface,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  headerCenterSubtitle: {
-    ...textStyles.caption,
-    color: 'rgba(255,255,255,0.76)',
-    fontWeight: '600',
-    marginTop: 1,
   },
   headerLeft: {
     flexDirection: 'row',

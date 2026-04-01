@@ -3,13 +3,31 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Button, Card } from '../components';
+import { AppGradientHeader, Button, Card } from '../components';
 import { useToast } from '../context/ToastContext';
-import { getFloatingTabBarBottomPadding, borderRadius, colors, spacing, textStyles, typography } from '../theme';
+import {
+  getFloatingTabBarBottomPadding,
+  borderRadius,
+  colors,
+  spacing,
+  textStyles,
+  typography,
+} from '../theme';
+import {
+  dailyFloatingPalette,
+  floatingPillShadow,
+  lifecycleFloatingPalette,
+  missionTypeChipStyle,
+} from '../theme/missionPillStyles';
 import {
   MENTOR_ASSIGNED_MISSIONS,
-  formatMissionStatusLabel,
+  formatDailyStatusLabel,
+  formatLifecycleStatusLabel,
   formatMissionTypeLabel,
+  getDailyStatusForToday,
+  getTodayIsoDate,
+  resolveLifecycleStatus,
+  upsertCompletionForDate,
   type MentorMission,
 } from '../data/mentorMissions';
 
@@ -19,25 +37,6 @@ type Props = {
   };
 };
 
-function missionTypeChipStyle(type: MentorMission['missionType']) {
-  return type === 'daily-habit'
-    ? { backgroundColor: colors.lavenderSoft, color: colors.primaryDark }
-    : { backgroundColor: colors.peachSoft, color: '#9A5D14' };
-}
-
-function statusTone(status: MentorMission['status']) {
-  switch (status) {
-    case 'completed':
-      return { bg: colors.mintSoft, text: colors.growth };
-    case 'missed':
-      return { bg: '#FFF1F1', text: colors.error };
-    case 'in-progress':
-      return { bg: colors.lavenderSoft, text: colors.primaryDark };
-    default:
-      return { bg: colors.surfaceMuted, text: colors.textSecondary };
-  }
-}
-
 export default function MissionsScreen({ navigation }: Props) {
   const { showToast } = useToast();
   const insets = useSafeAreaInsets();
@@ -45,7 +44,17 @@ export default function MissionsScreen({ navigation }: Props) {
     MENTOR_ASSIGNED_MISSIONS.map((m) => [m.id, m])
   ));
 
-  const missions = useMemo(() => Object.values(missionState), [missionState]);
+  const missions = useMemo(() => {
+    const list = Object.values(missionState);
+    return [...list].sort((a, b) => {
+      const doneA = getDailyStatusForToday(a) === 'done' ? 0 : 1;
+      const doneB = getDailyStatusForToday(b) === 'done' ? 0 : 1;
+      if (doneA !== doneB) {
+        return doneA - doneB;
+      }
+      return a.title.localeCompare(b.title);
+    });
+  }, [missionState]);
   const bottomPad = useMemo(
     () => getFloatingTabBarBottomPadding(insets.bottom),
     [insets.bottom]
@@ -53,6 +62,7 @@ export default function MissionsScreen({ navigation }: Props) {
 
   const markDone = useCallback(
     (mission: MentorMission) => {
+      const today = getTodayIsoDate();
       setMissionState((prev) => {
         const current = prev[mission.id];
         if (!current) {
@@ -64,11 +74,7 @@ export default function MissionsScreen({ navigation }: Props) {
           [mission.id]: {
             ...current,
             progressPercent: nextProgress,
-            status: nextProgress >= 100 ? 'completed' : 'in-progress',
-            completionHistory: [
-              { date: new Date().toISOString().slice(0, 10), status: 'done' },
-              ...current.completionHistory,
-            ],
+            completionHistory: upsertCompletionForDate(current.completionHistory, today, 'done'),
           },
         };
       });
@@ -82,6 +88,7 @@ export default function MissionsScreen({ navigation }: Props) {
 
   const markMissed = useCallback(
     (mission: MentorMission) => {
+      const today = getTodayIsoDate();
       setMissionState((prev) => {
         const current = prev[mission.id];
         if (!current) {
@@ -93,11 +100,7 @@ export default function MissionsScreen({ navigation }: Props) {
           [mission.id]: {
             ...current,
             progressPercent: nextProgress,
-            status: 'missed',
-            completionHistory: [
-              { date: new Date().toISOString().slice(0, 10), status: 'missed' },
-              ...current.completionHistory,
-            ],
+            completionHistory: upsertCompletionForDate(current.completionHistory, today, 'missed'),
           },
         };
       });
@@ -128,17 +131,7 @@ export default function MissionsScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
-      <LinearGradient
-        colors={[colors.primary, colors.primaryDark]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.5, y: 0.866 }}
-        style={[styles.headerGradient, { paddingTop: insets.top }]}
-      >
-        <View style={styles.headerOrbLg} />
-        <View style={styles.headerOrbSm} />
-        <Text style={styles.headerTitle}>Missions</Text>
-        <Text style={styles.headerSubtitle}>Assigned by your mentor</Text>
-      </LinearGradient>
+      <AppGradientHeader title="Missions" subtitle="Assigned by your mentor" />
 
       <ScrollView
         style={styles.scroll}
@@ -147,19 +140,62 @@ export default function MissionsScreen({ navigation }: Props) {
       >
         {missions.map((mission) => {
           const typeVisual = missionTypeChipStyle(mission.missionType);
-          const statusVisual = statusTone(mission.status);
+          const lifecycle = resolveLifecycleStatus(mission);
+          const daily = getDailyStatusForToday(mission);
+          const lifecyclePal = lifecycleFloatingPalette(lifecycle);
+          const dailyPal = dailyFloatingPalette(daily);
+          const canMarkDaily = lifecycle === 'active' && daily !== null;
+          const isDailyDone = daily === 'done';
           return (
-            <Card key={mission.id} variant="elevated" style={styles.card}>
+            <Card
+              key={mission.id}
+              variant="elevated"
+              style={StyleSheet.flatten([styles.card, isDailyDone ? styles.cardWon : null])}
+            >
               <Pressable
                 onPress={() => openDetails(mission)}
                 style={({ pressed }) => [pressed && styles.cardPressed]}
                 accessibilityRole="button"
                 accessibilityLabel={`${mission.title}. Open mission details.`}
               >
-                <View style={styles.cardTop}>
-                  <Text style={styles.cardTitle}>{mission.title}</Text>
-                  <Icon name="chevron-right" size={22} color={colors.textMuted} />
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {mission.title}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.floatingPill,
+                      floatingPillShadow(lifecyclePal.shadowColor),
+                      { backgroundColor: lifecyclePal.bg },
+                    ]}
+                  >
+                    <Text style={[styles.floatingPillText, { color: lifecyclePal.text }]}>
+                      {formatLifecycleStatusLabel(lifecycle)}
+                    </Text>
+                  </View>
                 </View>
+
+                {isDailyDone ? (
+                  <LinearGradient
+                    colors={[colors.mintSoft, 'rgba(232, 248, 238, 0.35)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.winStrip}
+                  >
+                    <View style={styles.winIconOrb}>
+                      <Icon name="emoji-events" size={24} color={colors.growth} />
+                    </View>
+                    <View style={styles.winStripCopy}>
+                      <Text style={styles.winStripTitle}>Today's win</Text>
+                      <Text style={styles.winStripSub}>
+                        You completed this mission for today — keep the momentum going.
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                ) : null}
+
                 <Text style={styles.cardDesc}>{mission.description}</Text>
 
                 <View style={styles.badgeRow}>
@@ -168,9 +204,16 @@ export default function MissionsScreen({ navigation }: Props) {
                       {formatMissionTypeLabel(mission.missionType)}
                     </Text>
                   </View>
-                  <View style={[styles.chip, { backgroundColor: statusVisual.bg }]}>
-                    <Text style={[styles.chipText, { color: statusVisual.text }]}>
-                      {formatMissionStatusLabel(mission.status)}
+                  <View
+                    style={[
+                      styles.floatingPill,
+                      styles.floatingPillDaily,
+                      floatingPillShadow(dailyPal.shadowColor),
+                      { backgroundColor: dailyPal.bg },
+                    ]}
+                  >
+                    <Text style={[styles.floatingPillText, { color: dailyPal.text }]}>
+                      Today · {formatDailyStatusLabel(daily)}
                     </Text>
                   </View>
                 </View>
@@ -190,42 +233,44 @@ export default function MissionsScreen({ navigation }: Props) {
                 </View>
               </Pressable>
 
-              <View style={styles.actionsRow}>
-                <View style={styles.actionButtonCol}>
-                  <Button
-                    title="Done"
-                    size="small"
-                    variant="primary"
-                    icon={<Icon name="check-circle" size={18} color={colors.surface} />}
-                    onPress={() => markDone(mission)}
-                    style={StyleSheet.flatten([
-                      styles.missionButtonDone,
-                      {
-                        backgroundColor: colors.growth,
-                        minHeight: 38,
-                        paddingVertical: 8,
-                      },
-                    ])}
-                  />
+              {canMarkDaily && !isDailyDone ? (
+                <View style={styles.actionsRow}>
+                  <View style={styles.actionButtonCol}>
+                    <Button
+                      title="Done"
+                      size="small"
+                      variant="primary"
+                      icon={<Icon name="check-circle" size={18} color={colors.surface} />}
+                      onPress={() => markDone(mission)}
+                      style={StyleSheet.flatten([
+                        styles.missionButtonDone,
+                        {
+                          backgroundColor: colors.growth,
+                          minHeight: 38,
+                          paddingVertical: 8,
+                        },
+                      ])}
+                    />
+                  </View>
+                  <View style={styles.actionButtonCol}>
+                    <Button
+                      title="Missed"
+                      size="small"
+                      variant="primary"
+                      icon={<Icon name="highlight-off" size={18} color={colors.surface} />}
+                      onPress={() => markMissed(mission)}
+                      style={StyleSheet.flatten([
+                        styles.missionButtonMissed,
+                        {
+                          backgroundColor: colors.error,
+                          minHeight: 38,
+                          paddingVertical: 8,
+                        },
+                      ])}
+                    />
+                  </View>
                 </View>
-                <View style={styles.actionButtonCol}>
-                  <Button
-                    title="Missed"
-                    size="small"
-                    variant="primary"
-                    icon={<Icon name="highlight-off" size={18} color={colors.surface} />}
-                    onPress={() => markMissed(mission)}
-                    style={StyleSheet.flatten([
-                      styles.missionButtonMissed,
-                      {
-                        backgroundColor: colors.error,
-                        minHeight: 38,
-                        paddingVertical: 8,
-                      },
-                    ])}
-                  />
-                </View>
-              </View>
+              ) : null}
 
               {mission.missionType === 'activity-based' ? (
                 <Button
@@ -249,41 +294,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  headerGradient: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
-    overflow: 'hidden',
-  },
-  headerOrbLg: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    top: -90,
-    right: -40,
-  },
-  headerOrbSm: {
-    position: 'absolute',
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    left: 24,
-    bottom: 10,
-  },
-  headerTitle: {
-    ...textStyles.headingLarge,
-    color: colors.surface,
-    fontWeight: '800',
-  },
-  headerSubtitle: {
-    ...textStyles.bodyMedium,
-    color: 'rgba(255,255,255,0.78)',
-    marginTop: 2,
-  },
   scroll: {
     flex: 1,
   },
@@ -292,15 +302,32 @@ const styles = StyleSheet.create({
   },
   card: {
     marginVertical: spacing.xs,
+    overflow: 'visible',
+  },
+  cardWon: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(63, 169, 122, 0.35)',
+    backgroundColor: colors.surface,
   },
   cardPressed: {
     opacity: 0.9,
   },
-  cardTop: {
+  cardHeader: {
+    position: 'relative',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+    paddingRight: 0,
+    minHeight: 40,
+  },
+  cardTitleRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    paddingRight: spacing.xs,
   },
   cardTitle: {
     ...textStyles.headingMedium,
@@ -308,14 +335,78 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontWeight: '800',
   },
+  floatingPill: {
+    borderRadius: borderRadius.full,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    flexShrink: 0,
+  },
+  floatingPillDaily: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  floatingPillText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  winStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(63, 169, 122, 0.2)',
+  },
+  winIconOrb: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1A6B4A',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.18,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+      default: {},
+    }),
+  },
+  winStripCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  winStripTitle: {
+    ...textStyles.bodyLarge,
+    fontWeight: '800',
+    color: colors.growth,
+  },
+  winStripSub: {
+    ...textStyles.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+    fontWeight: '600',
+    lineHeight: 18,
+  },
   cardDesc: {
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },

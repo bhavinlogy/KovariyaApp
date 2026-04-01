@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ViewStyle,
   TextStyle,
-  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -21,15 +20,13 @@ type SettingId =
   | 'privacy'
   | 'help'
   | 'feedback'
-  | 'about'
-  | 'signOut';
+  | 'about';
 
 type SettingRow = {
   id: SettingId;
   icon: string;
   title: string;
   subtitle: string;
-  isDestructive?: boolean;
 };
 
 const MOCK_CHILDREN: Child[] = [
@@ -77,13 +74,6 @@ const SETTINGS_ROWS: SettingRow[] = [
     icon: 'info',
     title: 'About',
     subtitle: 'App version and legal information',
-  },
-  {
-    id: 'signOut',
-    icon: 'logout',
-    title: 'Sign Out',
-    subtitle: 'Sign out of your account',
-    isDestructive: true,
   },
 ];
 
@@ -135,7 +125,7 @@ function InitialAvatar({
 }
 
 const ProfileScreen: React.FC = () => {
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
   const parentInfo = {
@@ -151,36 +141,9 @@ const ProfileScreen: React.FC = () => {
   );
 
   const handleSettingPress = useCallback((id: SettingId) => {
-    switch (id) {
-      case 'signOut':
-        Alert.alert(
-          'Sign Out',
-          'Are you sure you want to sign out?',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Sign Out',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  await logout();
-                } catch (error) {
-                  console.error('Logout error:', error);
-                }
-              },
-            },
-          ]
-        );
-        break;
-      default:
-        // Handle other settings when implemented
-        console.log(`Setting pressed: ${id}`);
-        break;
-    }
-  }, [logout]);
+    // Handle other settings when implemented
+    console.log(`Setting pressed: ${id}`);
+  }, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -276,18 +239,9 @@ const ProfileScreen: React.FC = () => {
               accessibilityLabel={option.title}
             >
               <View style={styles.settingLeft}>
-                <Icon
-                  name={option.icon}
-                  size={24}
-                  color={option.isDestructive ? colors.error : colors.ink}
-                />
+                <Icon name={option.icon} size={24} color={colors.ink} />
                 <View style={styles.settingText}>
-                  <Text
-                    style={[
-                      styles.settingTitle,
-                      option.isDestructive && styles.settingTitleDestructive,
-                    ]}
-                  >
+                  <Text style={styles.settingTitle}>
                     {option.title}
                   </Text>
                   <Text style={styles.settingSubtitle}>{option.subtitle}</Text>
@@ -440,9 +394,6 @@ const styles = StyleSheet.create({
   settingTitle: {
     ...textStyles.bodyLarge,
     fontWeight: '500',
-  },
-  settingTitleDestructive: {
-    color: colors.error,
   },
   settingSubtitle: {
     ...textStyles.caption,

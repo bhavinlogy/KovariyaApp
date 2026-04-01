@@ -4,6 +4,7 @@ export { spacing, borderRadius, shadows } from './spacing';
 export {
   FLOATING_TAB_BAR_VISUAL_HEIGHT,
   getFloatingTabBarBottomPadding,
+  GRADIENT_60_END,
 } from './layout';
 
 import { colors } from './colors';

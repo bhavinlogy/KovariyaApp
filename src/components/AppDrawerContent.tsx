@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DrawerContentScrollView,
   type DrawerContentComponentProps,
@@ -7,6 +8,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, textStyles, borderRadius } from '../theme';
+import { useAuth } from '../context/AuthContext';
 import { useChildren } from '../context/ChildrenContext';
 
 const PARENT_GREETING_NAME = 'Sarah';
@@ -24,6 +26,8 @@ const MENU_ITEMS = [
  */
 export function AppDrawerContent(props: DrawerContentComponentProps) {
   const { navigation } = props;
+  const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const { children, selectedChildId, openChildPicker } = useChildren();
   const selectedChild = useMemo(
     () => children.find((c) => c.id === selectedChildId) ?? children[0],
@@ -41,6 +45,30 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
     [navigation]
   );
 
+  const confirmSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              navigation.closeDrawer();
+              await logout();
+            } catch (error) {
+              console.error('Logout error:', error);
+            }
+          },
+        },
+      ]
+    );
+  }, [logout, navigation]);
+
+  const signOutBottomPad = Math.max(insets.bottom, spacing.md);
+
   return (
     <LinearGradient
       colors={[colors.primary, colors.primaryDark]}
@@ -48,69 +76,91 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
       end={{ x: 0.5, y: 0.866 }}
       style={styles.shell}
     >
-      <View style={styles.orbLarge} pointerEvents="none" />
-      <View style={styles.orbMid} pointerEvents="none" />
-      <View style={styles.orbSmall} pointerEvents="none" />
+      <View style={styles.orbLayer} pointerEvents="none">
+        <View style={styles.orbLarge} />
+        <View style={styles.orbMid} />
+        <View style={styles.orbSmall} />
+      </View>
 
-      <DrawerContentScrollView
-        {...props}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.profileArea}>
-          <View style={styles.profileTopRow}>
-            <View style={styles.avatarBubble}>
-              <Text style={styles.avatarBubbleText}>{PARENT_GREETING_NAME.slice(0, 1)}</Text>
-            </View>
-            <Text style={styles.welcomeParent} numberOfLines={2} ellipsizeMode="tail">
-              Welcome, {PARENT_GREETING_NAME}
-            </Text>
-          </View>
-          <Text style={styles.subline}>Select child profile for dashboard analytics and reports.</Text>
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.childSelectorRow,
-            pressed && styles.childSelectorRowPressed,
-          ]}
-          onPress={() => {
-            navigation.closeDrawer();
-            openChildPicker();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`Change child. Now showing ${selectedChild.name}`}
+      <View style={styles.mainColumn}>
+        <DrawerContentScrollView
+          {...props}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <Icon name="child-care" size={18} color="rgba(255,255,255,0.9)" />
-          <View style={styles.childSelectorMain}>
-            <Text style={styles.childSelectorName} numberOfLines={1}>
-              {selectedChild.name}
-            </Text>
-            <Text style={styles.childSelectorAge} numberOfLines={1}>
-              Age {selectedChild.age} years
-            </Text>
+          <View style={styles.profileArea}>
+            <View style={styles.profileTopRow}>
+              <View style={styles.avatarBubble}>
+                <Text style={styles.avatarBubbleText}>{PARENT_GREETING_NAME.slice(0, 1)}</Text>
+              </View>
+              <Text style={styles.welcomeParent} numberOfLines={2} ellipsizeMode="tail">
+                Welcome, {PARENT_GREETING_NAME}
+              </Text>
+            </View>
+            <Text style={styles.subline}>Select child profile for dashboard analytics and reports.</Text>
           </View>
-          <Icon name="expand-more" size={20} color="rgba(255,255,255,0.75)" />
-        </Pressable>
 
-        <View style={styles.divider} />
-
-        {MENU_ITEMS.map((item) => (
           <Pressable
-            key={item.key}
-            onPress={() => goTo(item.route)}
-            style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+            style={({ pressed }) => [
+              styles.childSelectorRow,
+              pressed && styles.childSelectorRowPressed,
+            ]}
+            onPress={() => {
+              navigation.closeDrawer();
+              openChildPicker();
+            }}
             accessibilityRole="button"
-            accessibilityLabel={item.label}
+            accessibilityLabel={`Change child. Now showing ${selectedChild.name}`}
+          >
+            <Icon name="child-care" size={18} color="rgba(255,255,255,0.9)" />
+            <View style={styles.childSelectorMain}>
+              <Text style={styles.childSelectorName} numberOfLines={1}>
+                {selectedChild.name}
+              </Text>
+              <Text style={styles.childSelectorAge} numberOfLines={1}>
+                Age {selectedChild.age} years
+              </Text>
+            </View>
+            <Icon name="expand-more" size={20} color="rgba(255,255,255,0.75)" />
+          </Pressable>
+
+          <View style={styles.divider} />
+
+          {MENU_ITEMS.map((item) => (
+            <Pressable
+              key={item.key}
+              onPress={() => goTo(item.route)}
+              style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+            >
+              <View style={styles.menuIconOrb}>
+                <Icon name={item.icon} size={22} color={colors.surface} />
+              </View>
+              <Text style={styles.menuLabel}>{item.label}</Text>
+              <Icon name="chevron-right" size={22} color="rgba(255,255,255,0.7)" />
+            </Pressable>
+          ))}
+        </DrawerContentScrollView>
+
+        <View style={[styles.signOutFooter, { paddingBottom: signOutBottomPad }]}>
+          <Pressable
+            onPress={confirmSignOut}
+            style={({ pressed }) => [
+              styles.signOutRow,
+              pressed && styles.childSelectorRowPressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
           >
             <View style={styles.menuIconOrb}>
-              <Icon name={item.icon} size={22} color={colors.surface} />
+              <Icon name="logout" size={22} color={colors.surface} />
             </View>
-            <Text style={styles.menuLabel}>{item.label}</Text>
-            <Icon name="chevron-right" size={22} color="rgba(255,255,255,0.7)" />
+            <Text style={styles.menuLabel}>Sign Out</Text>
           </Pressable>
-        ))}
-      </DrawerContentScrollView>
+        </View>
+      </View>
     </LinearGradient>
   );
 }
@@ -121,12 +171,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lavender,
     overflow: 'hidden',
   },
+  orbLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  mainColumn: {
+    flex: 1,
+    zIndex: 1,
+  },
   orbLarge: {
     position: 'absolute',
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
     top: -56,
     right: -48,
   },
@@ -135,7 +193,7 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    backgroundColor: 'rgba(255, 255, 255, 0.055)',
     bottom: 120,
     left: -20,
   },
@@ -144,14 +202,25 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.065)',
     top: '42%',
     right: 24,
+  },
+  scroll: {
+    flex: 1,
   },
   scrollContent: {
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.md,
-    paddingBottom: spacing.xl,
+    paddingBottom: spacing.lg,
+    flexGrow: 1,
+  },
+  signOutFooter: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'transparent',
   },
   profileArea: {
     marginTop: spacing.lg,
@@ -309,5 +378,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
     color: colors.surface,
+  },
+  signOutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderRadius: borderRadius.xl,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.22)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
   },
 });

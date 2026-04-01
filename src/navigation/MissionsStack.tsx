@@ -28,7 +28,7 @@ export default function MissionsStack() {
       <Stack.Screen
         name="MissionDetail"
         component={MissionDetailScreen}
-        options={{ title: 'Mission Details' }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
