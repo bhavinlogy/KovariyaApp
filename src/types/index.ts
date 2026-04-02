@@ -17,15 +17,28 @@ export interface BehaviourAspect {
   note?: string;
 }
 
+export type GoalStatus = 'active' | 'completed' | 'paused';
+
+/**
+ * Parent-defined reward goals. Progress is tracked in raw points only;
+ * analytics elsewhere use Quality + Confidence separately.
+ */
 export interface Goal {
   id: string;
   title: string;
   description: string;
-  progress: number;
-  target: number;
-  deadline: string;
-  reward: string;
-  isActive: boolean;
+  /** Current raw points earned toward this goal */
+  currentRawPoints: number;
+  /** Target raw points to complete */
+  targetRawPoints: number;
+  /** ISO date (YYYY-MM-DD) */
+  startDate: string;
+  /** ISO date (YYYY-MM-DD) */
+  endDate: string;
+  rewardName: string;
+  /** Optional display (e.g. currency or “extra screen time”) */
+  rewardValue?: string;
+  status: GoalStatus;
 }
 
 export type MissionSubmissionStatus = 'pending' | 'submitted' | 'approved';

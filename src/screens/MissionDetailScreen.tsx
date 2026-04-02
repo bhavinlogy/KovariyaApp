@@ -26,6 +26,7 @@ import {
   type MentorMissionTimelineEntry,
   type MentorMission,
 } from '../data/mentorMissions';
+import { formatAppDate } from '../utils/dateFormat';
 
 type Props = {
   route: {
@@ -34,20 +35,6 @@ type Props = {
     };
   };
 };
-
-function formatHistoryDate(iso: string): string {
-  try {
-    const d = new Date(`${iso}T12:00:00`);
-    return d.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
-}
 
 export default function MissionDetailScreen({ route }: Props) {
   const { mission } = route.params;
@@ -144,12 +131,12 @@ export default function MissionDetailScreen({ route }: Props) {
             <View style={styles.dateStrip}>
               <View style={styles.dateStripItem}>
                 <Text style={styles.dateStripLabel}>Starts</Text>
-                <Text style={styles.dateStripValue}>{mission.startDate}</Text>
+                <Text style={styles.dateStripValue}>{formatAppDate(mission.startDate)}</Text>
               </View>
               <View style={styles.dateStripDivider} />
               <View style={styles.dateStripItem}>
                 <Text style={styles.dateStripLabel}>Ends</Text>
-                <Text style={styles.dateStripValue}>{mission.endDate}</Text>
+                <Text style={styles.dateStripValue}>{formatAppDate(mission.endDate)}</Text>
               </View>
             </View>
           </View>
@@ -244,7 +231,7 @@ export default function MissionDetailScreen({ route }: Props) {
                     />
                   </View>
                   <View style={styles.sheetMain}>
-                    <Text style={styles.sheetDate}>{formatHistoryDate(entry.date)}</Text>
+                    <Text style={styles.sheetDate}>{formatAppDate(entry.date)}</Text>
                     <View style={styles.sheetMetaRow}>
                       <View
                         style={[

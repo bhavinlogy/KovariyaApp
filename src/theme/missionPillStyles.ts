@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { colors } from './colors';
+import type { GoalStatus } from '../types';
 import type {
   MentorDailyStatus,
   MentorMissionLifecycleStatus,
@@ -61,6 +62,29 @@ export function dailyFloatingPalette(status: MentorDailyStatus | null) {
         bg: colors.skySoft,
         text: colors.primaryDark,
         shadowColor: '#4A7BC8',
+      };
+  }
+}
+
+export function goalStatusFloatingPalette(status: GoalStatus) {
+  switch (status) {
+    case 'completed':
+      return {
+        bg: colors.mintSoft,
+        text: colors.growth,
+        shadowColor: '#1A6B4A',
+      };
+    case 'paused':
+      return {
+        bg: colors.surfaceMuted,
+        text: colors.textMuted,
+        shadowColor: 'rgba(60, 55, 75, 0.35)',
+      };
+    default:
+      return {
+        bg: colors.lavenderSoft,
+        text: colors.primaryDark,
+        shadowColor: '#5E4FD4',
       };
   }
 }

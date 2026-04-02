@@ -30,6 +30,7 @@ import {
   upsertCompletionForDate,
   type MentorMission,
 } from '../data/mentorMissions';
+import { formatAppDate } from '../utils/dateFormat';
 
 type Props = {
   navigation: {
@@ -218,8 +219,8 @@ export default function MissionsScreen({ navigation }: Props) {
                   </View>
                 </View>
                 <View style={styles.dateRow}>
-                  <Text style={styles.dateText}>Start: {mission.startDate}</Text>
-                  <Text style={styles.dateText}>End: {mission.endDate}</Text>
+                  <Text style={styles.dateText}>Start: {formatAppDate(mission.startDate)}</Text>
+                  <Text style={styles.dateText}>End: {formatAppDate(mission.endDate)}</Text>
                 </View>
 
                 <View style={styles.progressWrap}>
@@ -299,6 +300,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.lg,
+    paddingVertical: spacing.sm
   },
   card: {
     marginVertical: spacing.xs,

@@ -14,6 +14,7 @@ import { Card } from '../components';
 import { colors, spacing, textStyles, getFloatingTabBarBottomPadding, borderRadius } from '../theme';
 import { Child } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { formatAppMonthYear } from '../utils/dateFormat';
 
 type SettingId =
   | 'notifications'
@@ -132,7 +133,7 @@ const ProfileScreen: React.FC = () => {
     name: user?.name || 'Wellness User',
     email: user?.email || 'user@kovariya.com',
     phone: '+1 (555) 123-4567',
-    memberSince: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024',
+    memberSince: user?.createdAt ? formatAppMonthYear(user.createdAt) || 'Jan 2024' : 'Jan 2024',
   };
 
   const scrollBottomPad = useMemo(

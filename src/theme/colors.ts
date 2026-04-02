@@ -42,11 +42,13 @@ export const colors = {
   accentLight: 'rgba(232, 160, 74, 0.14)',
   inkOverlay: 'rgba(13, 13, 13, 0.55)',
 
-  // Tab bar (floating pill)
-  tabBarBackground: '#121212',
-  tabBarIconActive: '#FFFFFF',
-  tabBarIconInactive: 'rgba(255, 255, 255, 0.42)',
+  // Tab bar (floating pill — deep navy shell + white active capsule)
+  tabBarBackground: '#0A0D12',
+  tabBarPillBorder: 'rgba(255, 255, 255, 0.06)',
+  tabBarIconActive: '#0D0D0D',
+  tabBarIconInactive: 'rgba(255, 255, 255, 0.38)',
   tabBarActivePill: '#FFFFFF',
+  tabBarLabelActive: '#0D0D0D',
 
   // Legacy keys kept for gradual refactors in components
   primaryGradient: ['#7C6AE8', '#5E4FD4'] as const,
