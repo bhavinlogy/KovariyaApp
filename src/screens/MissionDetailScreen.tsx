@@ -1,8 +1,10 @@
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { Platform, ScrollView, StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { setStatusBarStyle } from 'expo-status-bar';
+import { useFocusEffect } from '@react-navigation/native';
 import { AppGradientHeader, Card } from '../components';
 import {
   borderRadius,
@@ -39,6 +41,23 @@ type Props = {
 export default function MissionDetailScreen({ route }: Props) {
   const { mission } = route.params;
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light');
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        RNStatusBar.setBackgroundColor('transparent');
+      }
+      return () => {
+        setStatusBarStyle('dark');
+        if (Platform.OS === 'android') {
+          RNStatusBar.setTranslucent(false);
+          RNStatusBar.setBackgroundColor(colors.background);
+        }
+      };
+    }, [])
+  );
 
   const lifecycle = useMemo(() => resolveLifecycleStatus(mission), [mission]);
   const dailyToday = useMemo(() => getDailyStatusForToday(mission), [mission]);
