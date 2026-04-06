@@ -11,3 +11,8 @@ export { ProgressCircle } from './ProgressCircle';
 export { AspectRatingSheet } from './AspectRatingSheet';
 export { WeeklyAspectProgressChart } from './WeeklyAspectProgressChart';
 export { AIInsightsCard } from './AIInsightsCard';
+export { AddChildModal } from './AddChildModal';
+export { FloatingLabelField } from './FloatingLabelField';
+export { SelectField } from './SelectField';
+export type { SelectOption } from './SelectField';
+export { DatePickerField } from './DatePickerField';

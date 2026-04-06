@@ -27,7 +27,9 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.kovariya.app",
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +40,8 @@
         {
           "photosPermission": "Allow $(PRODUCT_NAME) to access your photos to attach mission evidence."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

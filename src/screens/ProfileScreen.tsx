@@ -1,20 +1,34 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ViewStyle,
   TextStyle,
+  Platform,
+  StatusBar as RNStatusBar,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { Card } from '../components';
-import { colors, spacing, textStyles, getFloatingTabBarBottomPadding, borderRadius } from '../theme';
+import { AppGradientHeader, Card, AddChildModal } from '../components';
+import {
+  colors,
+  spacing,
+  textStyles,
+  getFloatingTabBarBottomPadding,
+  borderRadius,
+  typography,
+} from '../theme';
+import { GRADIENT_60_END } from '../theme/layout';
 import { Child } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { formatAppMonthYear } from '../utils/dateFormat';
+import { useFocusEffect } from '@react-navigation/native';
+import { setStatusBarStyle } from 'expo-status-bar';
 
 type SettingId =
   | 'notifications'
@@ -30,7 +44,7 @@ type SettingRow = {
   subtitle: string;
 };
 
-const MOCK_CHILDREN: Child[] = [
+const INITIAL_CHILDREN: Child[] = [
   {
     id: '1',
     name: 'Emma Johnson',
@@ -78,6 +92,20 @@ const SETTINGS_ROWS: SettingRow[] = [
   },
 ];
 
+const STAT_TILES: { value: string; label: string; tint: string }[] = [
+  { value: '152', label: 'Total ratings', tint: colors.mintSoft },
+  { value: '8', label: 'Goals done', tint: colors.skySoft },
+  { value: '4.5', label: 'Avg. score', tint: colors.peachSoft },
+];
+
+const ICON_ORB_COLORS = [
+  colors.lavenderSoft,
+  colors.skySoft,
+  colors.mintSoft,
+  colors.peachSoft,
+  colors.surfaceMuted,
+] as const;
+
 function initialsFromFullName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
@@ -89,6 +117,23 @@ function initialsFromFullName(name: string): string {
 function firstNameInitial(name: string): string {
   const first = name.trim().split(/\s+/)[0];
   return first ? first.charAt(0).toUpperCase() : '?';
+}
+
+function childProfileSubtitle(child: Child): string | null {
+  const parts: string[] = [];
+  if (child.grade?.startsWith('class')) {
+    parts.push(`Class ${child.grade.replace(/^class/i, '')}`);
+  }
+  if (child.section) {
+    parts.push(`Sec ${child.section}`);
+  }
+  if (child.schoolName) {
+    parts.push(child.schoolName);
+  }
+  if (child.status === 'inactive') {
+    parts.push('Inactive');
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function InitialAvatar({
@@ -118,7 +163,7 @@ function InitialAvatar({
         style,
       ]}
     >
-      <Text style={{ fontSize: size * 0.38, fontWeight: '700', color: colors.ink } as TextStyle}>
+      <Text style={{ fontSize: size * 0.38, fontWeight: '800', color: colors.ink } as TextStyle}>
         {label}
       </Text>
     </View>
@@ -128,6 +173,8 @@ function InitialAvatar({
 const ProfileScreen: React.FC = () => {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const [childrenList, setChildrenList] = useState<Child[]>(INITIAL_CHILDREN);
+  const [addChildVisible, setAddChildVisible] = useState(false);
 
   const parentInfo = {
     name: user?.name || 'Wellness User',
@@ -141,218 +188,397 @@ const ProfileScreen: React.FC = () => {
     [insets.bottom]
   );
 
-  const handleSettingPress = useCallback((id: SettingId) => {
-    // Handle other settings when implemented
-    console.log(`Setting pressed: ${id}`);
+  const handleSettingPress = useCallback((_id: SettingId) => {
+    // Wire navigation or modals when implemented
   }, []);
 
+  const onChildAdded = useCallback((child: Child) => {
+    setChildrenList((prev) => [child, ...prev]);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setStatusBarStyle('light');
+      if (Platform.OS === 'android') {
+        RNStatusBar.setTranslucent(true);
+        RNStatusBar.setBackgroundColor('transparent');
+      }
+      return () => {
+        setStatusBarStyle('dark');
+        if (Platform.OS === 'android') {
+          RNStatusBar.setTranslucent(false);
+          RNStatusBar.setBackgroundColor(colors.background);
+        }
+      };
+    }, [])
+  );
+
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
+      <AppGradientHeader title="Profile" subtitle="Account & family" />
+
       <ScrollView
-        style={styles.scrollView}
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPad }]}
       >
-        <Card variant="elevated" style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <InitialAvatar
-                label={initialsFromFullName(parentInfo.name)}
-                size={80}
-                backgroundColor={colors.lavenderSoft}
-              />
-              <TouchableOpacity
-                style={styles.editButton}
-                accessibilityRole="button"
-                accessibilityLabel="Edit profile photo"
-              >
-                <Icon name="edit" size={16} color={colors.ink} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.profileName}>{parentInfo.name}</Text>
-              <Text style={styles.profileEmail}>{parentInfo.email}</Text>
-              <Text style={styles.memberSince}>Member since {parentInfo.memberSince}</Text>
-            </View>
-          </View>
-        </Card>
-
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>152</Text>
-            <Text style={styles.statLabel}>Total Ratings</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>8</Text>
-            <Text style={styles.statLabel}>Goals Completed</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>4.5</Text>
-            <Text style={styles.statLabel}>Avg. Score</Text>
-          </View>
-        </View>
-
-        <Card variant="elevated" style={styles.childrenCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Children</Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              accessibilityRole="button"
-              accessibilityLabel="Add child"
-            >
-              <Icon name="add" size={20} color={colors.ink} />
-            </TouchableOpacity>
-          </View>
-          {MOCK_CHILDREN.map((child) => (
-            <TouchableOpacity
-              key={child.id}
-              style={styles.childItem}
-              accessibilityRole="button"
-              accessibilityLabel={`${child.name}, age ${child.age}`}
-            >
-              <View style={styles.childAvatar}>
-                <InitialAvatar
-                  label={firstNameInitial(child.name)}
-                  size={50}
-                  backgroundColor={colors.skySoft}
-                />
-              </View>
-              <View style={styles.childInfo}>
-                <Text style={styles.childName}>{child.name}</Text>
-                <Text style={styles.childAge}>Age {child.age}</Text>
-              </View>
-              <Icon name="chevron-right" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ))}
-        </Card>
-
-        <Card variant="elevated" style={styles.settingsCard}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-          {SETTINGS_ROWS.map((option, index) => (
-            <TouchableOpacity
-              key={option.id}
-              style={[
-                styles.settingItem,
-                index === SETTINGS_ROWS.length - 1 && styles.lastSettingItem,
-              ]}
-              onPress={() => handleSettingPress(option.id)}
-              accessibilityRole="button"
-              accessibilityLabel={option.title}
-            >
-              <View style={styles.settingLeft}>
-                <Icon name={option.icon} size={24} color={colors.ink} />
-                <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>
-                    {option.title}
+        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
+          <Card variant="elevated" style={styles.profileCard} padding={0}>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={GRADIENT_60_END}
+              style={styles.profileAccent}
+            />
+            <View style={styles.profileCardInner}>
+              <View style={styles.profileHeader}>
+                <View style={styles.avatarWrap}>
+                  <View style={styles.avatarRing}>
+                    <InitialAvatar
+                      label={initialsFromFullName(parentInfo.name)}
+                      size={88}
+                      backgroundColor={colors.surface}
+                    />
+                  </View>
+                  {/* <Pressable
+                    style={({ pressed }) => [styles.editFab, pressed && styles.pressedOpacity]}
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit profile photo"
+                  >
+                    <Icon name="edit" size={18} color={colors.primaryDark} />
+                  </Pressable> */}
+                </View>
+                <View style={styles.profileInfo}>
+                  <Text style={styles.profileName} numberOfLines={2}>
+                    {parentInfo.name}
                   </Text>
-                  <Text style={styles.settingSubtitle}>{option.subtitle}</Text>
+                  <Text style={styles.profileEmail} numberOfLines={1}>
+                    {parentInfo.email}
+                  </Text>
+                  <View style={styles.memberPill}>
+                    <Icon name="verified" size={14} color={colors.growth} />
+                    <Text style={styles.memberPillText}>Member since {parentInfo.memberSince}</Text>
+                  </View>
                 </View>
               </View>
-              <Icon name="chevron-right" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ))}
-        </Card>
+              <View style={styles.contactRow}>
+                <Icon name="phone" size={18} color={colors.textMuted} />
+                <Text style={styles.contactText}>{parentInfo.phone}</Text>
+              </View>
+            </View>
+          </Card>
+        </Animated.View>
 
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Kovariya v1.0.0</Text>
-          <Text style={styles.versionSubtext}>Smart Parenting. Better Children.</Text>
-        </View>
+        <Animated.View entering={FadeInDown.delay(60).springify().damping(18).stiffness(220)}>
+          <Card variant="elevated" style={styles.statsCard}>
+            <Text style={styles.sectionEyebrow}>Overview</Text>
+            <View style={styles.statsRow}>
+              {STAT_TILES.map((tile) => (
+                <View key={tile.label} style={[styles.statTile, { backgroundColor: tile.tint }]}>
+                  <Text style={styles.statNumber}>{tile.value}</Text>
+                  <Text style={styles.statLabel}>{tile.label}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(100).springify().damping(18).stiffness(220)}>
+          <Card variant="elevated" style={styles.childrenCard}>
+            <View style={styles.sectionHeaderRow}>
+              <View>
+                <Text style={styles.sectionEyebrow}>Family</Text>
+                <Text style={styles.sectionTitle}>My children</Text>
+              </View>
+              <Pressable
+                onPress={() => setAddChildVisible(true)}
+                style={({ pressed }) => [styles.iconCircleBtn, pressed && styles.pressedOpacity]}
+                accessibilityRole="button"
+                accessibilityLabel="Add child"
+              >
+                <Icon name="add" size={22} color={colors.primaryDark} />
+              </Pressable>
+            </View>
+            {childrenList.map((child, index) => {
+              const subtitle = childProfileSubtitle(child);
+              return (
+                <Pressable
+                  key={child.id}
+                  style={({ pressed }) => [
+                    styles.childRow,
+                    index < childrenList.length - 1 && styles.childRowBorder,
+                    pressed && styles.pressedOpacity,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${child.name}, age ${child.age}`}
+                >
+                  <View style={styles.childAvatar}>
+                    <InitialAvatar
+                      label={firstNameInitial(child.name)}
+                      size={48}
+                      backgroundColor={colors.skySoft}
+                    />
+                  </View>
+                  <View style={styles.childInfo}>
+                    <Text style={styles.childName}>{child.name}</Text>
+                    <Text style={styles.childAge}>Age {child.age}</Text>
+                    {subtitle ? (
+                      <Text style={styles.childMeta} numberOfLines={2}>
+                        {subtitle}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Icon name="chevron-right" size={22} color={colors.textMuted} />
+                </Pressable>
+              );
+            })}
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(140).springify().damping(18).stiffness(220)}>
+          <Card variant="elevated" style={styles.settingsCard}>
+            <Text style={styles.sectionEyebrow}>App</Text>
+            <Text style={[styles.sectionTitle, styles.settingsTitleSpacing]}>Settings</Text>
+            {SETTINGS_ROWS.map((option, index) => (
+              <Pressable
+                key={option.id}
+                style={({ pressed }) => [
+                  styles.settingRow,
+                  index === SETTINGS_ROWS.length - 1 && styles.settingRowLast,
+                  pressed && styles.pressedOpacity,
+                ]}
+                onPress={() => handleSettingPress(option.id)}
+                accessibilityRole="button"
+                accessibilityLabel={option.title}
+              >
+                <View style={styles.settingLeft}>
+                  <View
+                    style={[
+                      styles.iconOrb,
+                      { backgroundColor: ICON_ORB_COLORS[index % ICON_ORB_COLORS.length] },
+                    ]}
+                  >
+                    <Icon name={option.icon} size={22} color={colors.primaryDark} />
+                  </View>
+                  <View style={styles.settingText}>
+                    <Text style={styles.settingTitle}>{option.title}</Text>
+                    <Text style={styles.settingSubtitle}>{option.subtitle}</Text>
+                  </View>
+                </View>
+                <Icon name="chevron-right" size={22} color={colors.textMuted} />
+              </Pressable>
+            ))}
+          </Card>
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.delay(180).springify().damping(18).stiffness(220)}>
+          <View style={styles.versionBlock}>
+            <Text style={styles.versionText}>Kovariya v1.0.0</Text>
+            <Text style={styles.versionSubtext}>Smart parenting. Better children.</Text>
+          </View>
+        </Animated.View>
       </ScrollView>
+
+      <AddChildModal
+        visible={addChildVisible}
+        onClose={() => setAddChildVisible(false)}
+        onSubmit={onChildAdded}
+      />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
+  scroll: {
     flex: 1,
-    padding: spacing.md,
+  },
+  scrollContent: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   profileCard: {
-    marginBottom: spacing.md,
+    marginVertical: spacing.xs,
+    overflow: 'hidden',
+  },
+  profileAccent: {
+    height: 4,
+    width: '100%',
+  },
+  profileCardInner: {
+    padding: spacing.lg,
   },
   profileHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  avatarContainer: {
+  avatarWrap: {
     position: 'relative',
     marginRight: spacing.md,
   },
-  editButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
+  avatarRing: {
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 2,
+    borderColor: colors.primaryLight,
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.medium,
-    padding: spacing.xs,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primaryDark,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+      },
+      android: { elevation: 4 },
+      default: {},
+    }),
+  },
+  editFab: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+      default: {},
+    }),
   },
   profileInfo: {
     flex: 1,
+    minWidth: 0,
+    paddingTop: spacing.xs,
   },
   profileName: {
     ...textStyles.headingMedium,
+    fontWeight: '800',
+    color: colors.ink,
     marginBottom: spacing.xs,
   },
   profileEmail: {
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
-  memberSince: {
-    ...textStyles.caption,
-    color: colors.textSecondary,
-  },
-  statsContainer: {
+  memberPill: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border,
-  },
-  statItem: {
-    flex: 1,
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    backgroundColor: colors.mintSoft,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(63, 169, 122, 0.2)',
   },
-  statNumber: {
-    ...textStyles.headingLarge,
-    color: colors.ink,
-    marginBottom: spacing.xs,
+  memberPillText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '700',
+    color: colors.growth,
   },
-  statLabel: {
-    ...textStyles.caption,
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  contactText: {
+    ...textStyles.bodyMedium,
     color: colors.textSecondary,
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  childrenCard: {
-    marginBottom: spacing.md,
+  statsCard: {
+    marginVertical: spacing.xs,
   },
-  sectionHeader: {
+  sectionEyebrow: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+  },
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
   sectionTitle: {
     ...textStyles.headingMedium,
+    fontWeight: '800',
+    color: colors.ink,
   },
-  addButton: {
+  settingsTitleSpacing: {
+    marginBottom: spacing.sm,
+  },
+  iconCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.lavenderSoft,
-    borderRadius: borderRadius.full,
-    padding: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  childItem: {
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  statTile: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: borderRadius.large,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    alignItems: 'center',
+  },
+  statNumber: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xl,
+    fontWeight: '800',
+    color: colors.primaryDark,
+    marginBottom: spacing.xs,
+  },
+  statLabel: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize.xs,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  childrenCard: {
+    marginVertical: spacing.xs,
+  },
+  childRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
+    paddingVertical: spacing.md,
+  },
+  childRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
   childAvatar: {
@@ -360,60 +586,89 @@ const styles = StyleSheet.create({
   },
   childInfo: {
     flex: 1,
+    minWidth: 0,
   },
   childName: {
     ...textStyles.bodyLarge,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: colors.ink,
   },
   childAge: {
-    ...textStyles.bodyMedium,
+    ...textStyles.caption,
     color: colors.textSecondary,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  childMeta: {
+    ...textStyles.caption,
+    color: colors.textMuted,
+    marginTop: 4,
+    fontWeight: '500',
+    lineHeight: 16,
   },
   settingsCard: {
-    marginBottom: spacing.md,
+    marginVertical: spacing.xs,
   },
-  settingItem: {
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
-  lastSettingItem: {
+  settingRowLast: {
     borderBottomWidth: 0,
+    paddingBottom: 0,
   },
   settingLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+  },
+  iconOrb: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   settingText: {
     marginLeft: spacing.md,
     flex: 1,
+    minWidth: 0,
   },
   settingTitle: {
     ...textStyles.bodyLarge,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: colors.ink,
   },
   settingSubtitle: {
     ...textStyles.caption,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: 2,
+    fontWeight: '500',
   },
-  versionContainer: {
+  pressedOpacity: {
+    opacity: 0.88,
+  },
+  versionBlock: {
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.xl,
+    paddingBottom: spacing.sm,
   },
   versionText: {
     ...textStyles.caption,
-    color: colors.textSecondary,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
   versionSubtext: {
     ...textStyles.caption,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
+    color: colors.textMuted,
     marginTop: spacing.xs,
+    fontStyle: 'italic',
+    fontWeight: '500',
   },
 });
 

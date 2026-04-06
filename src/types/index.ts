@@ -1,8 +1,27 @@
+export type ChildGender = 'male' | 'female';
+
+export type ChildSchoolStatus = 'active' | 'inactive';
+
 export interface Child {
   id: string;
+  /** Display name for lists (usually "First Last"). */
   name: string;
+  firstName?: string;
+  lastName?: string;
   age: number;
   avatar?: string;
+  /** ISO calendar date YYYY-MM-DD */
+  dateOfBirth?: string;
+  gender?: ChildGender;
+  /** e.g. class1 … class10 */
+  grade?: string;
+  /** Section letter e.g. A, B, C */
+  section?: string;
+  schoolName?: string;
+  /** School-issued admission / roll number */
+  admissionNumber?: string;
+  status?: ChildSchoolStatus;
+  notes?: string;
   dailyScore?: number;
   trustMeter?: number;
   confidenceIndicator?: number;
