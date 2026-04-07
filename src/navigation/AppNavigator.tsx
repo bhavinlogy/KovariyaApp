@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, ActivityIndicator } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
 import { LoginScreen } from '../screens/LoginScreen';
+import { QuizzesScreen } from '../screens';
 import MainDrawer from './MainDrawer';
 import { MenuPlaceholderScreen } from '../screens/MenuPlaceholderScreen';
 import { colors } from '../theme';
@@ -39,8 +40,7 @@ const AppNavigatorContent = () => {
           />
           <Stack.Screen
             name="Quizzes"
-            component={MenuPlaceholderScreen}
-            initialParams={{ title: 'Quizzes' }}
+            component={QuizzesScreen}
           />
           <Stack.Screen
             name="Announcements"
