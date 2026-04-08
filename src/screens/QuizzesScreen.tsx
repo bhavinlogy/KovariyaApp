@@ -33,7 +33,8 @@ type QuizQuestion =
     };
 
 type QuizSet = Quiz & {
-  timePeriodLabel: string;
+  dueDateLabel: string;
+  isExpired?: boolean;
   summary: string;
   questionsList: QuizQuestion[];
 };
@@ -49,7 +50,7 @@ const QUIZ_SETS: QuizSet[] = [
     questions: 4,
     completed: false,
     estimatedMinutes: 8,
-    timePeriodLabel: 'Complete within 8 mins',
+    dueDateLabel: 'Due Apr 12, 2026',
     questionsList: [
       {
         id: 'math-1',
@@ -91,7 +92,7 @@ const QUIZ_SETS: QuizSet[] = [
     score: 80,
     time: '6m 12s',
     estimatedMinutes: 7,
-    timePeriodLabel: 'Complete within 7 mins',
+    dueDateLabel: 'Due Apr 10, 2026',
     questionsList: [
       {
         id: 'science-1',
@@ -137,8 +138,9 @@ const QUIZ_SETS: QuizSet[] = [
     category: 'Language',
     questions: 3,
     completed: false,
+    isExpired: true,
     estimatedMinutes: 5,
-    timePeriodLabel: 'Complete within 5 mins',
+    dueDateLabel: 'Expired Apr 5, 2026',
     questionsList: [
       {
         id: 'english-1',
@@ -177,6 +179,15 @@ function normalizeAnswer(value: string) {
 }
 
 function statusMeta(quiz: QuizSet) {
+  if (quiz.isExpired) {
+    return {
+      label: 'Expired',
+      icon: 'event-busy',
+      backgroundColor: colors.surfaceMuted,
+      textColor: colors.textMuted,
+    };
+  }
+
   if (quiz.completed) {
     return {
       label: 'Complete',
@@ -258,12 +269,16 @@ const QuizzesScreen: React.FC = () => {
   }, [answers, currentQuestion]);
 
   const openQuiz = useCallback((quizId: string) => {
+    const selectedQuiz = quizzes.find((quiz) => quiz.id === quizId);
+    if (selectedQuiz?.isExpired) {
+      return;
+    }
     setActiveQuizId(quizId);
     setCurrentIndex(0);
     setAnswers({});
     setResultScore(null);
     setPhase('quiz');
-  }, []);
+  }, [quizzes]);
 
   const goBackToList = useCallback(() => {
     setPhase('list');
@@ -348,7 +363,7 @@ const QuizzesScreen: React.FC = () => {
       <SafeAreaView style={styles.root} edges={['left', 'right', 'bottom']}>
         <AppGradientHeader
           title={activeQuiz.title}
-          subtitle={activeQuiz.timePeriodLabel}
+          subtitle={activeQuiz.dueDateLabel}
           leadingMode="back"
           onBackPress={goBackToList}
         />
@@ -373,8 +388,8 @@ const QuizzesScreen: React.FC = () => {
                   </Text>
                 </View>
                 <View style={styles.progressBadge}>
-                  <Icon name="schedule" size={16} color={colors.primaryDark} />
-                  <Text style={styles.progressBadgeText}>{activeQuiz.timePeriodLabel}</Text>
+                  <Icon name="event" size={16} color={colors.primaryDark} />
+                  <Text style={styles.progressBadgeText}>{activeQuiz.dueDateLabel}</Text>
                 </View>
               </View>
               <View style={styles.progressBarTrack}>
@@ -469,10 +484,10 @@ const QuizzesScreen: React.FC = () => {
               source={
                 passed
                   ? require('../../assets/lottie/quiz-success.json')
-                  : require('../../assets/lottie/quiz-failure.json')
+                  : require('../../assets/lottie/Success-2.json')
               }
               autoPlay
-              loop
+              loop={false}
               style={styles.resultAnimation}
             />
           </View>
@@ -538,13 +553,20 @@ const QuizzesScreen: React.FC = () => {
 
         {quizzes.map((quiz) => {
           const status = statusMeta(quiz);
+          const isExpired = Boolean(quiz.isExpired);
 
           return (
-            <Card key={quiz.id} variant="elevated" style={styles.quizCard}>
+            <Card
+              key={quiz.id}
+              variant="elevated"
+              style={[styles.quizCard, isExpired && styles.quizCardExpired]}
+            >
               <View style={styles.quizCardTop}>
                 <View style={styles.quizCardTitleWrap}>
-                  <Text style={styles.quizTitle}>{quiz.title}</Text>
-                  <Text style={styles.quizSummary}>{quiz.summary}</Text>
+                  <Text style={[styles.quizTitle, isExpired && styles.quizTitleExpired]}>{quiz.title}</Text>
+                  <Text style={[styles.quizSummary, isExpired && styles.quizSummaryExpired]}>
+                    {quiz.summary}
+                  </Text>
                 </View>
                 <View style={[styles.statusPill, { backgroundColor: status.backgroundColor }]}>
                   <Icon name={status.icon} size={14} color={status.textColor} />
@@ -553,13 +575,25 @@ const QuizzesScreen: React.FC = () => {
               </View>
 
               <View style={styles.metaWrap}>
-                <View style={styles.metaChip}>
-                  <Icon name="help-outline" size={16} color={colors.primary} />
-                  <Text style={styles.metaChipText}>{quiz.questions} questions</Text>
+                <View style={[styles.metaChip, isExpired && styles.metaChipExpired]}>
+                  <Icon
+                    name="help-outline"
+                    size={16}
+                    color={isExpired ? colors.textMuted : colors.primary}
+                  />
+                  <Text style={[styles.metaChipText, isExpired && styles.metaChipTextExpired]}>
+                    {quiz.questions} questions
+                  </Text>
                 </View>
-                <View style={styles.metaChip}>
-                  <Icon name="timer" size={16} color={colors.primary} />
-                  <Text style={styles.metaChipText}>{quiz.timePeriodLabel}</Text>
+                <View style={[styles.metaChip, isExpired && styles.metaChipExpired]}>
+                  <Icon
+                    name="event"
+                    size={16}
+                    color={isExpired ? colors.textMuted : colors.primary}
+                  />
+                  <Text style={[styles.metaChipText, isExpired && styles.metaChipTextExpired]}>
+                    {quiz.dueDateLabel}
+                  </Text>
                 </View>
               </View>
 
@@ -572,10 +606,11 @@ const QuizzesScreen: React.FC = () => {
               ) : null}
 
               <Button
-                title={quiz.completed ? 'Start Again' : 'Start Quiz'}
+                title={isExpired ? 'Expired' : quiz.completed ? 'Start Again' : 'Start Quiz'}
                 onPress={() => openQuiz(quiz.id)}
-                variant={quiz.completed ? 'outline' : 'primary'}
+                variant={isExpired ? 'ghost' : quiz.completed ? 'outline' : 'primary'}
                 size="large"
+                disabled={isExpired}
               />
             </Card>
           );
@@ -629,6 +664,9 @@ const styles = StyleSheet.create({
   quizCard: {
     marginBottom: spacing.md,
   },
+  quizCardExpired: {
+    opacity: 0.68,
+  },
   quizCardTop: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -643,10 +681,16 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontWeight: '800',
   },
+  quizTitleExpired: {
+    color: colors.textSecondary,
+  },
   quizSummary: {
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+  },
+  quizSummaryExpired: {
+    color: colors.textMuted,
   },
   statusPill: {
     flexDirection: 'row',
@@ -674,10 +718,16 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     backgroundColor: colors.surfaceMuted,
   },
+  metaChipExpired: {
+    backgroundColor: '#E7E5EC',
+  },
   metaChipText: {
     ...textStyles.caption,
     color: colors.textSecondary,
     fontWeight: '700',
+  },
+  metaChipTextExpired: {
+    color: colors.textMuted,
   },
   completedStrip: {
     marginBottom: spacing.sm,
@@ -848,17 +898,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resultAnimationWrap: {
-    width: 220,
-    height: 220,
+    width: 250,
+    height: 250,
     borderRadius: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    // backgroundColor: colors.surface,
     marginBottom: spacing.md,
   },
   resultAnimation: {
-    width: 180,
-    height: 180,
+    width: 230,
+    height: 230,
   },
   resultScoreCaption: {
     ...textStyles.caption,

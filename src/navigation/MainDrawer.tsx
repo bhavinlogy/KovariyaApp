@@ -3,6 +3,10 @@ import { createDrawerNavigator } from '@react-navigation/drawer';
 import TabNavigator from './TabNavigator';
 import { AppDrawerContent } from '../components/AppDrawerContent';
 import { colors } from '../theme';
+import AnnouncementsScreen from '../screens/AnnouncementsScreen';
+import QuizzesScreen from '../screens/QuizzesScreen';
+import TutorialsScreen from '../screens/TutorialsScreen';
+import { MenuPlaceholderScreen } from '../screens/MenuPlaceholderScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -34,6 +38,23 @@ const MainDrawer = () => {
         options={{
           title: 'Home',
         }}
+      />
+      <Drawer.Screen
+        name="Sessions"
+        component={MenuPlaceholderScreen}
+        initialParams={{ title: 'Sessions' }}
+      />
+      <Drawer.Screen
+        name="Quizzes"
+        component={QuizzesScreen}
+      />
+      <Drawer.Screen
+        name="Announcements"
+        component={AnnouncementsScreen}
+      />
+      <Drawer.Screen
+        name="Tutorials"
+        component={TutorialsScreen}
       />
     </Drawer.Navigator>
   );

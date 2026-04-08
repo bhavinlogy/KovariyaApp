@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DrawerContentScrollView,
@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, spacing, textStyles, borderRadius } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { useChildren } from '../context/ChildrenContext';
+import { useConfirmDialog } from '../context/ConfirmDialogContext';
 
 const PARENT_GREETING_NAME = 'Sarah';
 
@@ -29,6 +30,7 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
   const { children, selectedChildId, openChildPicker } = useChildren();
+  const { showConfirm } = useConfirmDialog();
   const selectedChild = useMemo(
     () => children.find((c) => c.id === selectedChildId) ?? children[0],
     [children, selectedChildId]
@@ -37,35 +39,30 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
   const goTo = useCallback(
     (routeName: (typeof MENU_ITEMS)[number]['route']) => {
       navigation.closeDrawer();
-      const parent = navigation.getParent();
-      if (parent) {
-        parent.navigate(routeName as never);
-      }
+      navigation.navigate(routeName as never);
     },
     [navigation]
   );
 
   const confirmSignOut = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              navigation.closeDrawer();
-              await logout();
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          },
-        },
-      ]
-    );
-  }, [logout, navigation]);
+    navigation.closeDrawer();
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      cancelText: 'Stay here',
+      tone: 'danger',
+      icon: 'logout',
+      onConfirm: async () => {
+        try {
+          navigation.closeDrawer();
+          await logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+        }
+      },
+    });
+  }, [logout, navigation, showConfirm]);
 
   const signOutBottomPad = Math.max(insets.bottom, spacing.md);
 

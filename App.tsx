@@ -16,6 +16,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { AppNavigator } from './src/navigation';
 import { AuthProvider } from './src/context/AuthContext';
+import { ConfirmDialogProvider } from './src/context/ConfirmDialogContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { ChildrenProvider } from './src/context/ChildrenContext';
 import { queryClient } from './src/query/queryClient';
@@ -27,12 +28,14 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <SafeAreaProvider>
             <ToastProvider>
-              <AuthProvider>
-                <ChildrenProvider>
-                  <ExpoStatusBar style="dark" />
-                  <AppNavigator />
-                </ChildrenProvider>
-              </AuthProvider>
+              <ConfirmDialogProvider>
+                <AuthProvider>
+                  <ChildrenProvider>
+                    <ExpoStatusBar style="dark" />
+                    <AppNavigator />
+                  </ChildrenProvider>
+                </AuthProvider>
+              </ConfirmDialogProvider>
             </ToastProvider>
           </SafeAreaProvider>
         </QueryClientProvider>
