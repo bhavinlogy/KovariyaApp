@@ -5,8 +5,8 @@ import { AppDrawerContent } from '../components/AppDrawerContent';
 import { colors } from '../theme';
 import AnnouncementsScreen from '../screens/AnnouncementsScreen';
 import QuizzesScreen from '../screens/QuizzesScreen';
+import SessionsScreen from '../screens/SessionsScreen';
 import TutorialsScreen from '../screens/TutorialsScreen';
-import { MenuPlaceholderScreen } from '../screens/MenuPlaceholderScreen';
 
 const Drawer = createDrawerNavigator();
 
@@ -41,8 +41,7 @@ const MainDrawer = () => {
       />
       <Drawer.Screen
         name="Sessions"
-        component={MenuPlaceholderScreen}
-        initialParams={{ title: 'Sessions' }}
+        component={SessionsScreen}
       />
       <Drawer.Screen
         name="Quizzes"

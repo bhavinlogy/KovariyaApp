@@ -4,9 +4,9 @@ import {
 	Modal,
 	Platform,
 	Pressable,
-	ScrollView,
+  ScrollView,
 	StatusBar as RNStatusBar,
-	StyleSheet,
+  StyleSheet,
 	Text,
 	View,
 } from 'react-native';
@@ -192,7 +192,7 @@ function SummaryStrip({
 				<SummaryStat icon="play-arrow" label="Active" value={active} tint={colors.accent} />
 				<View style={styles.summaryDivider} />
 				<SummaryStat icon="check-circle" label="Done" value={completed} tint={colors.growth} />
-			</View>
+          </View>
 		</Animated.View>
 	);
 }
@@ -212,11 +212,11 @@ function SummaryStat({
 		<View style={styles.summaryStatCol}>
 			<View style={[styles.summaryStatIconWrap,{backgroundColor: `${tint}18`}]}>
 				<Icon name={icon} size={18} color={tint} />
-			</View>
+            </View>
 			<Text style={styles.summaryStatValue}>{value}</Text>
 			<Text style={styles.summaryStatLabel}>{label}</Text>
-		</View>
-	);
+    </View>
+  );
 }
 
 /* ─── Main screen ─── */
@@ -407,7 +407,7 @@ const GoalsScreen: React.FC=() => {
 					const statusPal=goalStatusFloatingPalette(goal.status);
 					const isCompleted=goal.status==='completed';
 					const barColor=progressBarColor(pct,goal.status);
-					return (
+  return (
 						<Animated.View
 							key={goal.id}
 							entering={FadeInDown.springify()
@@ -431,12 +431,12 @@ const GoalsScreen: React.FC=() => {
 									<View style={styles.cardHeader}>
 										<View style={styles.cardTitleRow}>
 											<View
-												style={[
+              style={[
 													styles.statusIconOrb,
 													{backgroundColor: `${statusPal.text}18`},
-												]}
-											>
-												<Icon
+              ]}
+            >
+              <Icon
 													name={goalStatusIcon(goal.status)}
 													size={18}
 													color={statusPal.text}
@@ -449,7 +449,7 @@ const GoalsScreen: React.FC=() => {
 											</View>
 										</View>
 										<View
-											style={[
+                style={[
 												styles.floatingPill,
 												floatingPillShadow(statusPal.shadowColor),
 												{backgroundColor: statusPal.bg},
@@ -488,7 +488,7 @@ const GoalsScreen: React.FC=() => {
 											<Icon name="star-outline" size={14} color={colors.textMuted} />
 											<Text style={styles.metaItemText}>
 												{goal.currentRawPoints}/{goal.targetRawPoints} pts
-											</Text>
+              </Text>
 										</View>
 									</View>
 
@@ -680,13 +680,13 @@ const GoalsScreen: React.FC=() => {
 										leftIcon={<Icon name="speed" size={18} color={colors.textMuted} />}
 									/>
 								</View>
-							</View>
+        </View>
 
 							{formError? (
 								<View style={styles.formErrorWrap}>
 									<Icon name="error-outline" size={16} color={colors.error} />
 									<Text style={styles.formError}>{formError}</Text>
-								</View>
+        </View>
 							):null}
 
 							<Button
@@ -699,43 +699,43 @@ const GoalsScreen: React.FC=() => {
 								style={styles.submitBtn}
 								icon={!isSubmitting? <Icon name="check" size={20} color={colors.surface} />:undefined}
 							/>
-						</ScrollView>
+      </ScrollView>
 					</SafeAreaView>
 				</KeyboardAvoidingView>
 			</Modal>
-		</SafeAreaView>
-	);
+    </SafeAreaView>
+  );
 };
 
 const styles=StyleSheet.create({
 	/* ─── Root ─── */
 	root: {
-		flex: 1,
-		backgroundColor: colors.background,
-	},
+    flex: 1,
+    backgroundColor: colors.background,
+  },
 	scroll: {
-		flex: 1,
+    flex: 1,
 	},
 	scrollContent: {
 		padding: spacing.lg,
 		paddingVertical: spacing.sm,
-	},
+  },
 
 	/* ─── Summary strip ─── */
 	summaryStrip: {
-		flexDirection: 'row',
+    flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: colors.surface,
+    backgroundColor: colors.surface,
 		borderRadius: borderRadius.xl,
 		paddingVertical: spacing.md,
 		paddingHorizontal: spacing.sm,
-		marginBottom: spacing.md,
+    marginBottom: spacing.md,
 		borderWidth: StyleSheet.hairlineWidth,
 		borderColor: colors.border,
 		...shadows.soft,
-	},
+  },
 	summaryStatCol: {
-		flex: 1,
+    flex: 1,
 		alignItems: 'center',
 		gap: 4,
 	},
@@ -743,8 +743,8 @@ const styles=StyleSheet.create({
 		width: 32,
 		height: 32,
 		borderRadius: 16,
-		alignItems: 'center',
-		justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
 		marginBottom: 2,
 	},
 	summaryStatValue: {
@@ -754,10 +754,10 @@ const styles=StyleSheet.create({
 		fontSize: 20,
 	},
 	summaryStatLabel: {
-		...textStyles.caption,
+    ...textStyles.caption,
 		color: colors.textMuted,
-		fontWeight: '600',
-	},
+    fontWeight: '600',
+  },
 	summaryDivider: {
 		width: StyleSheet.hairlineWidth,
 		height: 40,
@@ -778,9 +778,9 @@ const styles=StyleSheet.create({
 		opacity: 0.92,
 	},
 	cardHeader: {
-		flexDirection: 'row',
+    flexDirection: 'row',
 		alignItems: 'flex-start',
-		justifyContent: 'space-between',
+    justifyContent: 'space-between',
 		gap: spacing.sm,
 		minHeight: 40,
 	},
@@ -795,7 +795,7 @@ const styles=StyleSheet.create({
 		width: 34,
 		height: 34,
 		borderRadius: 17,
-		alignItems: 'center',
+    alignItems: 'center',
 		justifyContent: 'center',
 		flexShrink: 0,
 	},
@@ -804,8 +804,8 @@ const styles=StyleSheet.create({
 		minWidth: 0,
 	},
 	cardTitle: {
-		...textStyles.headingMedium,
-		flex: 1,
+    ...textStyles.headingMedium,
+    flex: 1,
 		color: colors.ink,
 		fontWeight: '800',
 	},
@@ -823,19 +823,19 @@ const styles=StyleSheet.create({
 	},
 	cardDesc: {
 		...textStyles.bodyMedium,
-		color: colors.textSecondary,
+    color: colors.textSecondary,
 		marginTop: spacing.sm,
 		lineHeight: 20,
-	},
+  },
 
 	/* ─── Reward strip ─── */
 	rewardStrip: {
-		flexDirection: 'row',
-		alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
 		gap: spacing.sm,
 		marginTop: spacing.md,
 		paddingVertical: spacing.sm,
-		paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.sm,
 		backgroundColor: colors.peachSoft,
 		borderRadius: borderRadius.large,
 		borderWidth: StyleSheet.hairlineWidth,
@@ -858,8 +858,8 @@ const styles=StyleSheet.create({
 			android: {elevation: 2},
 			default: {},
 		}),
-	},
-	rewardText: {
+  },
+  rewardText: {
 		...textStyles.bodyMedium,
 		flex: 1,
 		color: '#7A4E18',
@@ -879,7 +879,7 @@ const styles=StyleSheet.create({
 		gap: 6,
 	},
 	metaItemText: {
-		...textStyles.caption,
+    ...textStyles.caption,
 		color: colors.textMuted,
 		fontWeight: '600',
 	},
@@ -889,8 +889,8 @@ const styles=StyleSheet.create({
 		marginTop: spacing.md,
 	},
 	progressHead: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
 		marginBottom: spacing.xs,
 	},
 	progressLabel: {
@@ -917,7 +917,7 @@ const styles=StyleSheet.create({
 	fabContainer: {
 		position: 'absolute',
 		right: spacing.lg,
-		flexDirection: 'row',
+    flexDirection: 'row',
 		alignItems: 'center',
 		zIndex: 50,
 	},
@@ -941,7 +941,7 @@ const styles=StyleSheet.create({
 	},
 	fabGradient: {
 		flex: 1,
-		alignItems: 'center',
+    alignItems: 'center',
 		justifyContent: 'center',
 	},
 	fabPressed: {
@@ -983,7 +983,7 @@ const styles=StyleSheet.create({
 		borderLeftColor: colors.ink,
 	},
 	tooltipText: {
-		...textStyles.caption,
+    ...textStyles.caption,
 		color: colors.surface,
 		fontWeight: '700',
 		letterSpacing: 0.1,
@@ -998,9 +998,9 @@ const styles=StyleSheet.create({
 		flex: 1,
 	},
 	modalHeader: {
-		flexDirection: 'row',
+    flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'space-between',
+    justifyContent: 'space-between',
 		paddingHorizontal: spacing.lg,
 		paddingVertical: spacing.md,
 		borderBottomWidth: StyleSheet.hairlineWidth,
@@ -1019,11 +1019,11 @@ const styles=StyleSheet.create({
 		height: 40,
 		borderRadius: 20,
 		backgroundColor: colors.lavenderSoft,
-		alignItems: 'center',
+    alignItems: 'center',
 		justifyContent: 'center',
-	},
+  },
 	modalTitle: {
-		...textStyles.headingMedium,
+    ...textStyles.headingMedium,
 		fontWeight: '800',
 		color: colors.ink,
 	},
@@ -1044,8 +1044,8 @@ const styles=StyleSheet.create({
 		backgroundColor: colors.surfaceMuted,
 	},
 	modalScroll: {
-		flex: 1,
-	},
+    flex: 1,
+  },
 	modalScrollContent: {
 		paddingHorizontal: spacing.md,
 		paddingTop: spacing.sm,
@@ -1062,8 +1062,8 @@ const styles=StyleSheet.create({
 		overflow: 'hidden',
 	},
 	formSectionHeader: {
-		flexDirection: 'row',
-		alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
 		gap: spacing.sm,
 		paddingHorizontal: spacing.md,
 		paddingTop: spacing.sm,
@@ -1077,8 +1077,8 @@ const styles=StyleSheet.create({
 		justifyContent: 'center',
 	},
 	formSectionTitle: {
-		...textStyles.caption,
-		color: colors.textSecondary,
+    ...textStyles.caption,
+    color: colors.textSecondary,
 		fontWeight: '800',
 		textTransform: 'uppercase',
 		letterSpacing: 0.5,
@@ -1100,9 +1100,9 @@ const styles=StyleSheet.create({
 	},
 	formErrorWrap: {
 		flexDirection: 'row',
-		alignItems: 'center',
+    alignItems: 'center',
 		gap: spacing.sm,
-		marginTop: spacing.sm,
+    marginTop: spacing.sm,
 		padding: spacing.sm,
 		backgroundColor: 'rgba(232, 93, 93, 0.08)',
 		borderRadius: borderRadius.medium,
@@ -1110,14 +1110,14 @@ const styles=StyleSheet.create({
 		borderColor: 'rgba(232, 93, 93, 0.2)',
 	},
 	formError: {
-		...textStyles.caption,
+    ...textStyles.caption,
 		color: colors.error,
 		fontWeight: '600',
 		flex: 1,
 	},
 	submitBtn: {
 		marginTop: spacing.md,
-	},
+  },
 });
 
 export default GoalsScreen;
