@@ -15,11 +15,18 @@ import { useConfirmDialog } from '../context/ConfirmDialogContext';
 const PARENT_GREETING_NAME = 'Sarah';
 
 const MENU_ITEMS = [
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    icon: 'dashboard',
+    route: 'Tabs' as const,
+    params: { screen: 'Home' as const },
+  },
   { key: 'sessions', label: 'Sessions', icon: 'event', route: 'Sessions' as const },
   { key: 'quizzes', label: 'Quizzes', icon: 'poll', route: 'Quizzes' as const },
   { key: 'announcements', label: 'Announcements', icon: 'campaign', route: 'Announcements' as const },
   { key: 'tutorials', label: 'Tutorials', icon: 'menu-book', route: 'Tutorials' as const },
-];
+] as const;
 
 /**
  * Sidebar: light primary surface, white text, soft white orbs.
@@ -37,9 +44,9 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
   );
 
   const goTo = useCallback(
-    (routeName: (typeof MENU_ITEMS)[number]['route']) => {
+    (item: (typeof MENU_ITEMS)[number]) => {
       navigation.closeDrawer();
-      navigation.navigate(routeName as never);
+      navigation.navigate(item.route as never, item.params as never);
     },
     [navigation]
   );
@@ -127,7 +134,7 @@ export function AppDrawerContent(props: DrawerContentComponentProps) {
           {MENU_ITEMS.map((item) => (
             <Pressable
               key={item.key}
-              onPress={() => goTo(item.route)}
+              onPress={() => goTo(item)}
               style={({ pressed }) => [styles.menuRow, pressed && styles.menuRowPressed]}
               accessibilityRole="button"
               accessibilityLabel={item.label}

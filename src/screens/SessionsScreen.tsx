@@ -67,6 +67,9 @@ type StatusPalette = {
   text: string;
   shadowColor: string;
   icon: string;
+  accent: string;
+  tint: string;
+  border: string;
 };
 
 function sessionStatusPalette(group: SessionGroup): StatusPalette {
@@ -78,6 +81,9 @@ function sessionStatusPalette(group: SessionGroup): StatusPalette {
         text: colors.primaryDark,
         shadowColor: '#5E4FD4',
         icon: 'schedule',
+        accent: colors.primaryDark,
+        tint: 'rgba(124, 106, 232, 0.08)',
+        border: 'rgba(124, 106, 232, 0.14)',
       };
     case 'Conducted':
       return {
@@ -86,14 +92,20 @@ function sessionStatusPalette(group: SessionGroup): StatusPalette {
         text: colors.growth,
         shadowColor: '#1A6B4A',
         icon: 'check-circle',
+        accent: colors.growth,
+        tint: 'rgba(63, 169, 122, 0.08)',
+        border: 'rgba(63, 169, 122, 0.14)',
       };
     case 'Watch Session':
       return {
-        label: 'Watch Now',
+        label: 'Watch Session',
         bg: colors.peachSoft,
         text: '#9A5D14',
         shadowColor: '#9A5D14',
         icon: 'play-circle-filled',
+        accent: colors.accent,
+        tint: 'rgba(232, 160, 74, 0.08)',
+        border: 'rgba(232, 160, 74, 0.16)',
       };
   }
 }
@@ -155,7 +167,7 @@ const SESSIONS: SessionItem[] = [
       'A replay-ready session for parents supporting homework routines, focus blocks, and healthy breaks.',
     description:
       'This on-demand session shares ways to create a supportive study environment at home so children can work with more focus, clearer expectations, and less resistance.',
-    date: 'Replay · 28 Mar 2026',
+    date: '28 Mar 2026',
     duration: '31 min',
     imageUri: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=600&q=80',
     bullets: [
@@ -194,11 +206,16 @@ function StatusPill({ group }: { group: SessionGroup }) {
 
 function SessionCard({ session }: { session: SessionItem }) {
   const isUpcoming = session.group === 'Upcoming';
-  const isWatch = session.group === 'Watch Session';
+  const isReplay = session.group === 'Watch Session';
+  const isConducted = session.group === 'Conducted';
+  const pal = sessionStatusPalette(session.group);
 
   return (
-    <Card variant="elevated" style={styles.sessionCard}>
-      {/* Image area */}
+    <Card
+      variant="elevated"
+      padding={0}
+      style={StyleSheet.flatten([styles.sessionCard, { borderColor: pal.border }])}
+    >
       <View style={styles.imageWrap}>
         <Image
           source={{ uri: session.imageUri }}
@@ -206,24 +223,34 @@ function SessionCard({ session }: { session: SessionItem }) {
           resizeMode="cover"
         />
         {isUpcoming ? <View style={styles.imageLockedOverlay} /> : null}
-        {isWatch ? (
+        {isReplay ? (
           <View style={styles.playIconWrap}>
             <View style={styles.playIconCircle}>
               <Icon name="play-arrow" size={24} color="#fff" />
             </View>
           </View>
         ) : null}
+        <View style={[styles.imageStateStrip, { backgroundColor: pal.tint }]}>
+          <Icon name={pal.icon} size={12} color={pal.accent} />
+          <Text style={[styles.imageStateText, { color: pal.text }]}>{pal.label}</Text>
+        </View>
         <View style={styles.durationChip}>
           <Icon name="timer" size={12} color="rgba(255,255,255,0.92)" />
           <Text style={styles.durationChipText}>{session.duration}</Text>
         </View>
       </View>
 
-      {/* Card body */}
       <View style={styles.cardBody}>
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleRow}>
-            <Text style={[styles.cardTitle, isUpcoming && styles.textMuted]} numberOfLines={2}>
+            <Text
+              style={[
+                styles.cardTitle,
+                isUpcoming && styles.cardTitleUpcoming,
+                isConducted && styles.cardTitleConducted,
+              ]}
+              numberOfLines={2}
+            >
               {session.title}
             </Text>
           </View>
@@ -242,12 +269,18 @@ function SessionCard({ session }: { session: SessionItem }) {
             <Icon name="event" size={13} color={colors.primaryDark} />
             <Text style={styles.metaChipText}>{session.date}</Text>
           </View>
+          <View style={[styles.metaChip, { backgroundColor: pal.tint }]}>
+            <Icon name={isReplay ? 'play-circle-outline' : 'schedule'} size={13} color={pal.accent} />
+            <Text style={[styles.metaChipText, { color: pal.accent }]}>
+              {isUpcoming ? 'Live soon' : isReplay ? 'Watch Session' : 'Completed'}
+            </Text>
+          </View>
         </View>
 
         {isUpcoming ? (
           <View style={styles.lockedStrip}>
             <Icon name="lock-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.lockedText}>Available after the session</Text>
+            <Text style={styles.lockedText}>Available after the live session</Text>
           </View>
         ) : null}
       </View>
@@ -268,17 +301,12 @@ function DetailHeroCard({ session }: { session: SessionItem }) {
         />
       </View>
       <View style={styles.detailCardPad}>
-        <StatusPill group={session.group} />
         <Text style={styles.detailHeroTitle}>{session.title}</Text>
         <Text style={styles.detailHeroDesc}>{session.description}</Text>
         <View style={styles.heroChipRow}>
           <View style={[styles.heroChip, { backgroundColor: colors.skySoft }]}>
             <Icon name="event" size={14} color={colors.primaryDark} />
             <Text style={styles.heroChipText}>{session.date}</Text>
-          </View>
-          <View style={[styles.heroChip, { backgroundColor: colors.lavenderSoft }]}>
-            <Icon name="timer" size={14} color={colors.primaryDark} />
-            <Text style={styles.heroChipText}>{session.duration}</Text>
           </View>
         </View>
       </View>
@@ -325,7 +353,7 @@ function DetailWhyCard({ session }: { session: SessionItem }) {
       >
         <View style={styles.detailCardPad}>
           <View style={styles.detailCardHeader}>
-            <View style={[styles.detailCardIconWrap, { backgroundColor: 'rgba(255,255,255,0.7)' }]}>
+            <View style={styles.detailCardIconWrapSoft}>
               <Icon name="lightbulb-outline" size={18} color={colors.primary} />
             </View>
             <Text style={styles.detailCardTitle}>Why This Matters</Text>
@@ -402,7 +430,7 @@ function DetailTipsCard({ session }: { session: SessionItem }) {
 function SessionDetail({
   session,
   insetsTop,
-  progress,
+  progress: _progress,
   onClose,
   contentStyle,
 }: {
@@ -674,7 +702,7 @@ const SessionsScreen: React.FC = () => {
                         .springify()
                         .damping(18)
                         .stiffness(220)}
-                      style={[isExpanded ? styles.hiddenCard : undefined, { marginBottom: spacing.sm }]}
+                      style={[isExpanded ? styles.hiddenCard : undefined, { marginBottom: spacing.md }]}
                     >
                       <View
                         ref={(node) => { cardRefs.current[session.id] = node; }}
@@ -739,6 +767,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xs,
+    paddingBottom: spacing.lg,
   },
   headerAction: {
     width: 44,
@@ -788,7 +817,7 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   cardPressable: {
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   cardPressablePressed: {
     opacity: 0.92,
@@ -799,10 +828,21 @@ const styles = StyleSheet.create({
   sessionCard: {
     marginVertical: 0,
     overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+      default: {},
+    }),
   },
 
   imageWrap: {
-    height: 170,
+    height: 116,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
     overflow: 'hidden',
@@ -847,6 +887,24 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     zIndex: 4,
   },
+  imageStateStrip: {
+    position: 'absolute',
+    left: spacing.sm,
+    top: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    zIndex: 4,
+  },
+  imageStateText: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   durationChipText: {
     fontFamily: typography.fontFamily.primary,
     fontSize: 11,
@@ -855,28 +913,37 @@ const styles = StyleSheet.create({
   },
 
   cardBody: {
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    minHeight: 40,
   },
   cardTitleRow: {
     flex: 1,
     minWidth: 0,
-    paddingRight: spacing.xs,
   },
   cardTitle: {
-    ...textStyles.headingMedium,
+    fontFamily: typography.fontFamily.primary,
+    fontSize: 17,
+    lineHeight: 22,
     color: colors.ink,
     fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  cardTitleUpcoming: {
+    color: colors.primaryDark,
+  },
+  cardTitleConducted: {
+    color: colors.growth,
   },
   floatingPill: {
     borderRadius: borderRadius.full,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 10,
     flexShrink: 0,
   },
@@ -887,10 +954,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   cardDesc: {
-    ...textStyles.bodyMedium,
+    fontFamily: typography.fontFamily.primary,
+    fontSize: 12,
+    lineHeight: 18,
     color: colors.textSecondary,
-    marginTop: spacing.sm,
-    lineHeight: 20,
+    marginTop: 6,
   },
   textMuted: {
     color: colors.textMuted,
@@ -902,15 +970,15 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: 6,
+    marginTop: 8,
   },
   metaChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: borderRadius.full,
   },
   metaChipText: {
@@ -923,8 +991,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
@@ -1071,6 +1139,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  detailCardIconWrapSoft: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.7)',
   },
   detailCardTitle: {
     ...textStyles.headingMedium,
