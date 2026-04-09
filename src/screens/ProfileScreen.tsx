@@ -255,30 +255,19 @@ const ProfileScreen: React.FC = () => {
                   <Text style={styles.profileEmail} numberOfLines={1}>
                     {parentInfo.email}
                   </Text>
+                  <Text style={styles.contactText}>
+                    {parentInfo.phone}
+                  </Text>
                   <View style={styles.memberPill}>
                     <Icon name="verified" size={14} color={colors.growth} />
                     <Text style={styles.memberPillText}>Member since {parentInfo.memberSince}</Text>
                   </View>
                 </View>
               </View>
-              <View style={styles.contactRow}>
+              {/* <View style={styles.contactRow}>
                 <Icon name="phone" size={18} color={colors.textMuted} />
-                <Text style={styles.contactText}>{parentInfo.phone}</Text>
-              </View>
-            </View>
-          </Card>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(60).springify().damping(18).stiffness(220)}>
-          <Card variant="elevated" style={styles.statsCard}>
-            <Text style={styles.sectionEyebrow}>Overview</Text>
-            <View style={styles.statsRow}>
-              {STAT_TILES.map((tile) => (
-                <View key={tile.label} style={[styles.statTile, { backgroundColor: tile.tint }]}>
-                  <Text style={styles.statNumber}>{tile.value}</Text>
-                  <Text style={styles.statLabel}>{tile.label}</Text>
-                </View>
-              ))}
+                
+              </View> */}
             </View>
           </Card>
         </Animated.View>
@@ -462,7 +451,7 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1,
     minWidth: 0,
-    paddingTop: spacing.xs,
+    // paddingTop: spacing.xs,
   },
   profileName: {
     ...textStyles.headingMedium,
@@ -507,6 +496,7 @@ const styles = StyleSheet.create({
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
     fontWeight: '600',
+    marginBottom: spacing.sm
   },
   statsCard: {
     marginVertical: spacing.xs,
