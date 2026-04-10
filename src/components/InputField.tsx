@@ -11,7 +11,7 @@ import {
 import { colors, spacing, borderRadius, textStyles } from '../theme';
 
 interface InputFieldProps extends TextInputProps {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
   style?: ViewStyle;
   inputStyle?: TextStyle;
