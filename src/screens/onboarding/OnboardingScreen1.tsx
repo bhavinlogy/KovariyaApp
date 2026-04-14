@@ -10,6 +10,8 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  Image,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
@@ -29,6 +31,8 @@ import Animated, {
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, borderRadius, shadows, textStyles } from '../../theme';
+import { InputField } from '../../components/InputField';
+
 
 const { width: SW } = Dimensions.get('window');
 
@@ -43,7 +47,7 @@ const COUNTRY_CODES = [
 // ─── Illustration Card ────────────────────────────────────────────────────────
 const IllustrationCard = () => (
   <View style={styles.illusCard}>
-    <Text style={styles.childEmoji}>👦</Text>
+    <Image source={require('../../../assets/images/onboarding-1.webp')} style={styles.illusImage} />
     <View style={styles.illusTextBox}>
       <Text style={styles.illusTitle}>Welcome to Kovariya</Text>
       <Text style={styles.illusSub}>Smart parenting, calmer days</Text>
@@ -87,11 +91,11 @@ export function OnboardingScreen1({ navigation }: Props) {
   const [showCCPicker, setShowCCPicker] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const [focusedOtp, setFocusedOtp] = useState(0);
+  const [otp, setOtp] = useState('');
+  const [isOtpFocused, setIsOtpFocused] = useState(false);
   const [timer, setTimer] = useState(60);
   const [timerActive, setTimerActive] = useState(false);
-  const otpRefs = [useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null), useRef<TextInput>(null)];
+  const otpInputRef = useRef<TextInput>(null);
 
   const mainX = useSharedValue(0);
   const otpX = useSharedValue(SW);
@@ -126,7 +130,7 @@ export function OnboardingScreen1({ navigation }: Props) {
     setShowOtp(true);
     setTimer(60);
     setTimerActive(true);
-    setTimeout(() => otpRefs[0].current?.focus(), 500);
+    setTimeout(() => otpInputRef.current?.focus(), 500);
   };
 
   const handleSendOtp = () => {
@@ -150,35 +154,42 @@ export function OnboardingScreen1({ navigation }: Props) {
     // No back on the root screen when not in OTP view
   };
 
-  const handleOtpChange = (text: string, idx: number) => {
-    const digit = text.replace(/[^0-9]/g, '').slice(-1);
-    const next = [...otp];
-    next[idx] = digit;
-    setOtp(next);
-    if (digit && idx < 3) {
-      otpRefs[idx + 1].current?.focus();
-      setFocusedOtp(idx + 1);
-    }
-    if (next.every(d => d !== '') && idx === 3) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      setTimeout(() => navigation.navigate('Onboarding2'), 350);
-    }
+  useEffect(() => {
+    const onBackPress = () => {
+      if (showOtp) {
+        handleBack();
+        return true;
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [showOtp]);
+
+  const proceedToNext = () => {
+    navigation.navigate('Onboarding2');
+    setTimeout(() => {
+      mainX.value = 0;
+      otpX.value = SW;
+      setShowOtp(false);
+      setOtp('');
+    }, 500);
   };
 
-  const handleOtpKeyPress = (key: string, idx: number) => {
-    if (key === 'Backspace' && !otp[idx] && idx > 0) {
-      otpRefs[idx - 1].current?.focus();
-      setFocusedOtp(idx - 1);
-      const next = [...otp]; next[idx - 1] = '';
-      setOtp(next);
+  const handleOtpChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9]/g, '').slice(0, 4);
+    setOtp(cleaned);
+    if (cleaned.length === 4) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(proceedToNext, 350);
     }
   };
 
   const resendOtp = () => {
     setTimer(60);
     setTimerActive(true);
-    setOtp(['', '', '', '']);
-    otpRefs[0].current?.focus();
+    setOtp('');
+    otpInputRef.current?.focus();
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
@@ -226,41 +237,35 @@ export function OnboardingScreen1({ navigation }: Props) {
 
               <Animated.View entering={FadeInDown.duration(400).delay(300)} style={styles.fields}>
                 {/* School ID / Code */}
-                <View>
-                  <Text style={styles.label}>{tab === 'school' ? 'School ID' : 'Unique Code'}</Text>
-                  <View style={styles.inputWrap}>
-                    <Icon name="business" size={20} color={colors.textMuted} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder={tab === 'school' ? 'e.g. SCH-20045' : 'Enter your invite code'}
-                      placeholderTextColor={colors.textMuted}
-                      value={schoolId}
-                      onChangeText={setSchoolId}
-                      autoCapitalize="characters"
-                    />
-                  </View>
-                </View>
+                <InputField
+                  label={tab === 'school' ? 'School ID' : 'Unique Code'}
+                  placeholder={tab === 'school' ? 'e.g. SCH-20045' : 'Enter your invite code'}
+                  value={schoolId}
+                  onChangeText={setSchoolId}
+                  autoCapitalize="characters"
+                  leftIcon={<Icon name="business" size={20} color={colors.textMuted} />}
+                />
 
                 {/* Mobile Number */}
-                <View>
-                  <Text style={styles.label}>Mobile Number</Text>
-                  <View style={styles.inputWrap}>
-                    <Pressable style={styles.ccChip} onPress={() => setShowCCPicker(!showCCPicker)}>
-                      <Text style={styles.ccFlag}>{countryCode.flag}</Text>
-                      <Text style={styles.ccCode}>{countryCode.code}</Text>
-                      <Icon name="arrow-drop-down" size={18} color={colors.textSecondary} />
-                    </Pressable>
-                    <View style={styles.divider} />
-                    <TextInput
-                      style={[styles.input, { flex: 1 }]}
-                      placeholder="9876543210"
-                      placeholderTextColor={colors.textMuted}
-                      keyboardType="phone-pad"
-                      value={mobile}
-                      onChangeText={setMobile}
-                      maxLength={10}
-                    />
-                  </View>
+                <View style={{ zIndex: 10 }}>
+                  <InputField
+                    label="Mobile Number"
+                    placeholder="9876543210"
+                    keyboardType="phone-pad"
+                    value={mobile}
+                    onChangeText={setMobile}
+                    maxLength={10}
+                    leftIcon={
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Pressable style={styles.ccChip} onPress={() => setShowCCPicker(!showCCPicker)}>
+                          <Text style={styles.ccFlag}>{countryCode.flag}</Text>
+                          <Text style={styles.ccCode}>{countryCode.code}</Text>
+                          <Icon name="arrow-drop-down" size={18} color={colors.textSecondary} />
+                        </Pressable>
+                        <View style={styles.divider} />
+                      </View>
+                    }
+                  />
                   {showCCPicker && (
                     <Animated.View entering={FadeInDown.duration(200)} style={styles.ccDropdown}>
                       {COUNTRY_CODES.map(cc => (
@@ -308,29 +313,29 @@ export function OnboardingScreen1({ navigation }: Props) {
               </Animated.View>
 
               {/* 4 OTP boxes + hidden input */}
-              <View style={styles.otpRow}>
-                {otp.map((digit, i) => (
-                  <OtpBox key={i} index={i} value={digit} focused={focusedOtp === i && showOtp} />
-                ))}
-              </View>
+              <Pressable style={styles.otpRow} onPress={() => otpInputRef.current?.focus()}>
+                {[0, 1, 2, 3].map((i) => {
+                  const digit = otp[i] || '';
+                  const isFocused = isOtpFocused && (otp.length === i || (otp.length === 4 && i === 3));
+                  return <OtpBox key={i} index={i} value={digit} focused={isFocused && showOtp} />;
+                })}
+              </Pressable>
 
-              {/* Hidden inputs */}
-              <View style={styles.hiddenInputs}>
-                {otp.map((_, i) => (
-                  <TextInput
-                    key={i}
-                    ref={otpRefs[i]}
-                    style={styles.hiddenInput}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    value={otp[i]}
-                    onChangeText={text => handleOtpChange(text, i)}
-                    onKeyPress={({ nativeEvent }) => handleOtpKeyPress(nativeEvent.key, i)}
-                    onFocus={() => setFocusedOtp(i)}
-                    caretHidden
-                  />
-                ))}
-              </View>
+              {/* Single Hidden Input */}
+              <TextInput
+                ref={otpInputRef}
+                style={styles.singleHiddenInput}
+                keyboardType="number-pad"
+                maxLength={4}
+                value={otp}
+                onChangeText={handleOtpChange}
+                onFocus={() => setIsOtpFocused(true)}
+                onBlur={() => setIsOtpFocused(false)}
+                caretHidden
+                autoFocus={false}
+                autoComplete="sms-otp"
+                textContentType="oneTimeCode"
+              />
 
               {/* Timer + Resend */}
               <View style={styles.timerRow}>
@@ -346,7 +351,7 @@ export function OnboardingScreen1({ navigation }: Props) {
               {/* Verify CTA */}
               <Pressable
                 style={({ pressed }) => [styles.ctaBtn, { opacity: pressed ? 0.85 : 1 }]}
-                onPress={() => navigation.navigate('Onboarding2')}
+                onPress={proceedToNext}
               >
                 <Text style={styles.ctaText}>Verify & Continue</Text>
                 <Icon name="arrow-forward" size={20} color={colors.surface} />
@@ -360,7 +365,7 @@ export function OnboardingScreen1({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: colors.surface },
   scroll: { flexGrow: 1, paddingBottom: spacing.xxl },
 
   backBtn: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, marginBottom: spacing.xs },
@@ -376,18 +381,24 @@ const styles = StyleSheet.create({
   // Illustration
   illusCard: {
     marginHorizontal: spacing.md,
-    borderRadius: borderRadius.xxl,
-    backgroundColor: colors.lavenderSoft,
-    height: 160,
+    // borderRadius: borderRadius.xxl,
+    // backgroundColor: colors.lavenderSoft,
+    height: 200,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     marginBottom: spacing.lg,
   },
+  illusImage: {
+    width: '100%',
+    height: 150,
+    resizeMode: 'contain',
+    marginBottom: spacing.xs
+  },
   childEmoji: { fontSize: 64, marginBottom: spacing.xs },
   illusTextBox: { alignItems: 'center' },
-  illusTitle: { ...textStyles.headingMedium, color: colors.primary },
-  illusSub: { ...textStyles.caption, color: colors.textSecondary, marginTop: 2 },
+  illusTitle: { ...textStyles.headingLarge, color: colors.primary },
+  illusSub: { ...textStyles.bodyMedium, color: colors.textSecondary, marginTop: 2 },
 
   // Form
   formBlock: { paddingHorizontal: spacing.md },
@@ -415,7 +426,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: colors.surface },
 
   // Inputs
-  fields: { gap: spacing.md, marginBottom: spacing.lg },
+  fields: { gap: spacing.lg, marginBottom: spacing.lg },
   label: { ...textStyles.bodyMedium, color: colors.textSecondary, marginBottom: spacing.xs, fontWeight: '500' },
   inputWrap: {
     flexDirection: 'row',
@@ -494,8 +505,7 @@ const styles = StyleSheet.create({
   otpBoxFocused: { borderColor: colors.primary, borderWidth: 2.5 },
   otpBoxFilled: { backgroundColor: colors.lavenderSoft, borderColor: colors.primary },
   otpDigit: { fontSize: 22, fontWeight: '700', color: colors.textPrimary },
-  hiddenInputs: { flexDirection: 'row', position: 'absolute', opacity: 0, height: 0 },
-  hiddenInput: { width: 56, height: 56 },
+  singleHiddenInput: { position: 'absolute', opacity: 0, width: 1, height: 1 },
   timerRow: { alignItems: 'center', marginBottom: spacing.xl },
   timerText: { ...textStyles.bodyMedium, color: colors.textSecondary },
   resendBtn: { ...textStyles.bodyMedium, color: colors.primary, fontWeight: '700', textDecorationLine: 'underline' },

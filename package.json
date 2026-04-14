@@ -20,8 +20,10 @@
     "@react-navigation/bottom-tabs": "^7.15.7",
     "@react-navigation/drawer": "^7.9.8",
     "@react-navigation/native": "^7.2.0",
+    "@react-navigation/native-stack": "^7.14.10",
     "@react-navigation/stack": "^7.8.7",
     "@tanstack/react-query": "^5.95.2",
+    "dayjs": "^1.11.20",
     "expo": "^55.0.8",
     "expo-av": "^16.0.8",
     "expo-dev-client": "~55.0.18",
@@ -39,6 +41,7 @@
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
     "react-native-svg": "15.15.3",
+    "react-native-ui-datepicker": "^3.1.2",
     "react-native-vector-icons": "^10.3.0",
     "react-native-worklets": "0.7.1"
   },

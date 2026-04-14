@@ -4,21 +4,18 @@ import {
   Text,
   Modal,
   Pressable,
-  Platform,
   StyleSheet,
   ViewStyle,
+  Platform,
 } from 'react-native';
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, borderRadius, textStyles, typography } from '../theme';
+import { colors, spacing, borderRadius, textStyles } from '../theme';
 import { formatAppDate } from '../utils/dateFormat';
 import { toIsoDate } from '../utils/age';
 
 type DatePickerFieldProps = {
-  label: string;
+  label?: string | React.ReactNode;
   valueIso: string | undefined;
   onChangeIso: (iso: string) => void;
   placeholder?: string;
@@ -27,6 +24,7 @@ type DatePickerFieldProps = {
   containerStyle?: ViewStyle;
   minimumDate?: Date;
   maximumDate?: Date;
+  children?: React.ReactNode;
 };
 
 function parseIsoToLocalDate(iso: string | undefined): Date {
@@ -39,9 +37,6 @@ function parseIsoToLocalDate(iso: string | undefined): Date {
   return Number.isNaN(t) ? new Date() : new Date(t);
 }
 
-/**
- * Stacked label + tappable field (matches InputField spacing).
- */
 export const DatePickerField = React.memo(function DatePickerField({
   label,
   valueIso,
@@ -52,10 +47,10 @@ export const DatePickerField = React.memo(function DatePickerField({
   containerStyle,
   minimumDate,
   maximumDate,
+  children,
 }: DatePickerFieldProps) {
-  const [showAndroid, setShowAndroid] = useState(false);
-  const [showIOS, setShowIOS] = useState(false);
-  const [iosDraft, setIosDraft] = useState<Date>(() => parseIsoToLocalDate(valueIso));
+  const [showModal, setShowModal] = useState(false);
+  const [draftDate, setDraftDate] = useState<Date>(() => parseIsoToLocalDate(valueIso));
 
   const display = useMemo(() => {
     if (!valueIso || valueIso.length < 10) {
@@ -64,107 +59,119 @@ export const DatePickerField = React.memo(function DatePickerField({
     return formatAppDate(valueIso.slice(0, 10));
   }, [valueIso]);
 
-  const pickerActive = showAndroid || showIOS;
-
   const openPicker = useCallback(() => {
-    setIosDraft(parseIsoToLocalDate(valueIso));
-    if (Platform.OS === 'android') {
-      setShowAndroid(true);
-    } else {
-      setShowIOS(true);
-    }
+    const initDate = parseIsoToLocalDate(valueIso);
+    setDraftDate(initDate);
+    setShowModal(true);
   }, [valueIso]);
 
-  const onAndroidChange = useCallback(
-    (event: DateTimePickerEvent, date?: Date) => {
-      setShowAndroid(false);
-      if (event.type === 'dismissed' || !date) {
-        return;
+  const confirmDate = useCallback(() => {
+    onChangeIso(toIsoDate(draftDate));
+    setShowModal(false);
+  }, [draftDate, onChangeIso]);
+
+  const cancelDate = useCallback(() => {
+    setShowModal(false);
+  }, []);
+
+  const onDateChange = useCallback((event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowModal(false);
+      if (event.type === 'set' && selectedDate) {
+        setDraftDate(selectedDate);
+        onChangeIso(toIsoDate(selectedDate));
       }
-      onChangeIso(toIsoDate(date));
-    },
-    [onChangeIso]
-  );
-
-  const confirmIos = useCallback(() => {
-    onChangeIso(toIsoDate(iosDraft));
-    setShowIOS(false);
-  }, [iosDraft, onChangeIso]);
-
-  const cancelIos = useCallback(() => {
-    setShowIOS(false);
-  }, []);
-
-  const onIosChange = useCallback((_e: DateTimePickerEvent, date?: Date) => {
-    if (date) {
-      setIosDraft(date);
+    } else {
+      if (selectedDate) {
+        setDraftDate(selectedDate);
+      }
     }
-  }, []);
+  }, [onChangeIso]);
 
   const maxD = maximumDate ?? new Date();
   const minD = minimumDate ?? new Date(1900, 0, 1);
 
   return (
     <View style={containerStyle}>
-      <Pressable
-        onPress={openPicker}
-        style={({ pressed }) => [
-          styles.fieldBox,
-          error ? styles.fieldBoxError : null,
-          (pressed || pickerActive) && !error ? styles.fieldBoxFocused : null,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={label}
-      >
-        {leftIcon ? <View style={styles.leftIconWrap}>{leftIcon}</View> : null}
-        <View style={styles.valueRow}>
-          <Text
-            style={[styles.valueText, !display ? styles.placeholder : null]}
-            numberOfLines={1}
-          >
-            {display ?? placeholder}
-          </Text>
-          <Icon name="calendar-today" size={20} color={colors.textMuted} />
-        </View>
-      </Pressable>
+      {label && typeof label === 'string' ? (
+        <Text style={[styles.labelAbove, error ? styles.labelAboveError : null]}>
+          {label}
+        </Text>
+      ) : label}
+
+      {children ? (
+        <Pressable onPress={openPicker}>{children}</Pressable>
+      ) : (
+        <Pressable
+          onPress={openPicker}
+          style={[
+            styles.fieldBox,
+            error ? styles.fieldBoxError : null,
+            showModal && !error ? styles.fieldBoxFocused : null,
+          ]}
+        >
+          {leftIcon ? <View style={styles.leftIconWrap}>{leftIcon}</View> : null}
+          <View style={styles.valueRow}>
+            <Text
+              style={[styles.valueText, !display ? styles.placeholder : null]}
+              numberOfLines={1}
+            >
+              {display ?? placeholder}
+            </Text>
+            <Icon name="keyboard-arrow-down" size={20} color={colors.textSecondary} />
+          </View>
+        </Pressable>
+      )}
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {showAndroid ? (
+      {Platform.OS === 'ios' && (
+        <Modal transparent visible={showModal} animationType="fade" onRequestClose={cancelDate}>
+          <Pressable style={styles.modalOverlay} onPress={cancelDate}>
+            <Pressable style={styles.card} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>
+                  {typeof label === 'string' ? label : 'Select Date'}
+                </Text>
+              </View>
+
+              <View style={styles.pickerWrap}>
+                <DateTimePicker
+                  value={draftDate}
+                  mode="date"
+                  display="inline"
+                  onChange={onDateChange}
+                  minimumDate={minD}
+                  maximumDate={maxD}
+                  textColor={colors.textPrimary}
+                  accentColor={colors.primary}
+                  design="compact"
+                />
+              </View>
+
+              <View style={styles.cardFooter}>
+                <Pressable onPress={cancelDate} style={styles.footerBtn} hitSlop={10}>
+                  <Text style={styles.footerCancel}>Cancel</Text>
+                </Pressable>
+                <Pressable onPress={confirmDate} style={styles.footerBtnPrimary} hitSlop={10}>
+                  <Text style={styles.footerDone}>Done</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {Platform.OS === 'android' && showModal && (
         <DateTimePicker
-          value={parseIsoToLocalDate(valueIso)}
+          value={draftDate}
           mode="date"
           display="default"
-          onChange={onAndroidChange}
+          onChange={onDateChange}
           minimumDate={minD}
           maximumDate={maxD}
         />
-      ) : null}
-
-      <Modal visible={showIOS} animationType="slide" presentationStyle="pageSheet" onRequestClose={cancelIos}>
-        <SafeAreaView style={styles.iosSheet} edges={['top', 'left', 'right']}>
-          <View style={styles.iosToolbar}>
-            <Pressable onPress={cancelIos} style={styles.iosToolbarBtn}>
-              <Text style={styles.iosToolbarCancel}>Cancel</Text>
-            </Pressable>
-            <Text style={styles.iosToolbarTitle} numberOfLines={1}>
-              {label}
-            </Text>
-            <Pressable onPress={confirmIos} style={styles.iosToolbarBtn}>
-              <Text style={styles.iosToolbarDone}>Done</Text>
-            </Pressable>
-          </View>
-          <View style={styles.iosPickerWrap}>
-            <DateTimePicker
-              value={iosDraft}
-              mode="date"
-              display="spinner"
-              onChange={onIosChange}
-              minimumDate={minD}
-              maximumDate={maxD}
-            />
-          </View>
-        </SafeAreaView>
-      </Modal>
+      )}
     </View>
   );
 });
@@ -174,7 +181,7 @@ const styles = StyleSheet.create({
     ...textStyles.bodyMedium,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
-    lineHeight: 20,
+    fontWeight: '500',
   },
   labelAboveError: {
     color: colors.error,
@@ -187,11 +194,10 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: borderRadius.large,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minHeight: 56,
+    height: 56,
   },
   fieldBoxFocused: {
-    borderColor: colors.ink,
+    borderColor: colors.primary,
   },
   fieldBoxError: {
     borderColor: colors.error,
@@ -202,16 +208,13 @@ const styles = StyleSheet.create({
   },
   valueRow: {
     flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
-    minHeight: 28,
   },
   valueText: {
     ...textStyles.bodyLarge,
-    lineHeight: 22,
     color: colors.textPrimary,
     flex: 1,
   },
@@ -224,47 +227,70 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
     fontWeight: '600',
   },
-  iosSheet: {
-    flex: 1,
-    backgroundColor: colors.background,
+
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
   },
-  iosToolbar: {
+  card: {
+    width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xxl,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  cardHeader: {
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
+  cardTitle: {
+    ...textStyles.headingMedium,
+    color: colors.textPrimary,
+  },
+  cardFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+  },
+  footerBtn: {
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surface,
+    borderRadius: borderRadius.medium,
+    justifyContent: 'center',
   },
-  iosToolbarBtn: {
-    minWidth: 72,
+  footerBtnPrimary: {
     paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.medium,
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  iosToolbarCancel: {
-    ...textStyles.bodyLarge,
+  footerCancel: {
+    ...textStyles.button,
     color: colors.textSecondary,
-    fontWeight: '600',
   },
-  iosToolbarTitle: {
-    ...textStyles.caption,
-    fontFamily: typography.fontFamily.primary,
-    fontSize: typography.fontSize.sm,
-    fontWeight: '800',
-    color: colors.ink,
-    flex: 1,
-    textAlign: 'center',
-    lineHeight: 20,
+  footerDone: {
+    ...textStyles.button,
+    color: colors.surface,
   },
-  iosToolbarDone: {
-    ...textStyles.bodyLarge,
-    color: colors.primary,
-    fontWeight: '800',
-    textAlign: 'right',
-  },
-  iosPickerWrap: {
-    backgroundColor: colors.surface,
-    alignItems: 'center',
+  pickerWrap: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
   },
 });

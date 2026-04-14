@@ -41,12 +41,11 @@ export const InputField = React.memo(function InputField({
       borderColor: error
         ? colors.error
         : isFocused
-          ? colors.ink
+          ? colors.primary
           : colors.border,
       borderRadius: borderRadius.large,
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
-      minHeight: 56,
+      height: 56,
     };
   };
 
@@ -78,7 +77,7 @@ export const InputField = React.memo(function InputField({
 
   return (
     <View style={style}>
-      {label && <Text style={getLabelStyle()}>{label}</Text>}
+      {label ? (typeof label === 'string' ? <Text style={getLabelStyle()}>{label}</Text> : label) : null}
       <View style={getInputContainerStyle()}>
         {leftIcon && <View style={{ marginRight: spacing.sm }}>{leftIcon}</View>}
         <TextInput
@@ -94,7 +93,7 @@ export const InputField = React.memo(function InputField({
           </Pressable>
         )}
       </View>
-      {error && <Text style={getErrorStyle()}>{error}</Text>}
+      {error ? <Text style={getErrorStyle()}>{error}</Text> : null}
     </View>
   );
 });
