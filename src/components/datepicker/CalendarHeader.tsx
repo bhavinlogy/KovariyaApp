@@ -1,18 +1,20 @@
 import React from 'react';
-import {View,Text,StyleSheet,TouchableOpacity} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import dayjs from 'dayjs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
-export default function CalendarHeader({month,onPrev,onNext}: {month: dayjs.Dayjs,onPrev: () => void,onNext: () => void}) {
+export default function CalendarHeader({ month, onPrev, onNext, onPressTitle }: { month: dayjs.Dayjs, onPrev: () => void, onNext: () => void, onPressTitle: () => void }) {
 	return (
 		<View style={styles.header}>
 			<TouchableOpacity onPress={onPrev}>
 				<Icon name="arrow-back" size={24} color="#000" />
 			</TouchableOpacity>
 
-			<Text style={styles.title}>
-				{month.format('MMMM YYYY')}
-			</Text>
+			<TouchableOpacity onPress={onPressTitle}>
+				<Text style={styles.title}>
+					{month.format('MMMM YYYY')}
+				</Text>
+			</TouchableOpacity>
 
 			<TouchableOpacity onPress={onNext}>
 				<Icon name="arrow-forward" size={24} color="#000" />
@@ -21,11 +23,12 @@ export default function CalendarHeader({month,onPrev,onNext}: {month: dayjs.Dayj
 	);
 }
 
-const styles=StyleSheet.create({
+const styles = StyleSheet.create({
 	header: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+		marginBottom: 30,
 	},
 	title: {
 		fontSize: 18,

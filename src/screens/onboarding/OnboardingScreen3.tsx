@@ -295,24 +295,17 @@ export function OnboardingScreen3({navigation}: Props) {
 				onSelect={setGrade}
 				onClose={() => setShowGradeSheet(false)}
 			/>
-			{/*
-			<CustomDatePicker
-				visible={showCustomDob}
-				value={new Date(dobIso)}
-				minimumDate={new Date(1900,0,1)}
-				maximumDate={new Date()}
-				onDateChange={(date) => {
-					setDobIso(date.toISOString());
-					Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-				}}
-				onClose={() => setShowCustomDob(false)}
-				title="Date of Birth"
-			/>*/}
-
 			<CalendarModal
 				visible={showCustomDob}
 				onClose={() => setShowCustomDob(false)}
-				onSelectDate={(d: any) => setDobIso(d.toISOString())}
+				onSelectDate={(d) => {
+					setDobIso(d.toISOString());
+					Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+				}}
+				initialDate={new Date(dobIso)}
+				minDate={new Date(1900, 0, 1)}
+				maxDate={new Date()}
+				title="Date of Birth"
 			/>
 		</SafeAreaView>
 	);
