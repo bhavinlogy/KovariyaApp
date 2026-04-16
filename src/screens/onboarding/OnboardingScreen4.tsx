@@ -140,7 +140,6 @@ export function OnboardingScreen4({ navigation }: Props) {
 
 	const currentPin = step === 'set' ? pin : confirmPin;
 	const isComplete = step === 'confirm' && pinState === 'match' && confirmPin.length === 4;
-	const isStepReady = currentPin.length === 4;
 
 	// Keep input focused seamlessly
 	const focusInput = () => hiddenInputRef.current?.focus();
@@ -149,6 +148,18 @@ export function OnboardingScreen4({ navigation }: Props) {
 		const timer = setTimeout(focusInput, 400);
 		return () => clearTimeout(timer);
 	}, [step]);
+
+	// Auto-advance to confirm step once 4-digit PIN is set
+	useEffect(() => {
+		if (step === 'set' && pin.length === 4) {
+			const timer = setTimeout(() => {
+				Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+				setStep('confirm');
+				setPinState('idle');
+			}, 400);
+			return () => clearTimeout(timer);
+		}
+	}, [pin, step]);
 
 	const handlePinChange = (text: string) => {
 		const digits = text.replace(/[^0-9]/g, '').slice(0, 4);
@@ -186,16 +197,9 @@ export function OnboardingScreen4({ navigation }: Props) {
 	};
 
 	const goNext = async () => {
-		if (step === 'set' && pin.length === 4) {
-			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-			setStep('confirm');
-			setPinState('idle');
-		} else if (isComplete && !isLoggingIn) {
+		if (isComplete && !isLoggingIn) {
 			Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 			setIsLoggingIn(true);
-			// screenX.value = withTiming(-SW * 0.15, { duration: 250, easing: Easing.out(Easing.cubic) }, () => {
-			// 	screenX.value = 0;
-			// });
 			try {
 				await login({ email: 'user@kovariya.com', password: 'password' });
 			} catch (e) {
@@ -302,36 +306,36 @@ export function OnboardingScreen4({ navigation }: Props) {
 						</View>
 					</ScrollView>
 
-					{/* Matched Sticky CTA with exactly same formatting as Screen 3 */}
-					<Animated.View
-						entering={FadeInUp.duration(400).delay(350)}
-						style={[styles.stickyBottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
-					>
-						<Pressable
-							style={({ pressed }) => [
-								styles.ctaBtn,
-								!isStepReady ? styles.ctaBtnDisabled : null,
-								(pressed && isStepReady) ? styles.ctaBtnPressed : null
-							]}
-							onPress={goNext}
-							disabled={!isStepReady || isLoggingIn}
+					{/* CTA only shown during confirm step – set step auto-advances */}
+					{step === 'confirm' && (
+						<Animated.View
+							entering={FadeInUp.duration(400).delay(350)}
+							style={[styles.stickyBottom, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
 						>
-							{isLoggingIn ? (
-								<ActivityIndicator size="small" color={colors.surface} />
-							) : (
-								<>
-									<Text style={[styles.ctaText, !isStepReady ? styles.ctaTextDisabled : null]}>
-										{step === 'set' ? 'Continue' : 'Finish Setup'}
-									</Text>
-									{isStepReady && step === 'confirm' ? (
-										<Icon name="celebration" size={20} color={colors.surface} />
-									) : isStepReady ? (
-										<Icon name="arrow-forward" size={20} color={colors.surface} />
-									) : null}
-								</>
-							)}
-						</Pressable>
-					</Animated.View>
+							<Pressable
+								style={({ pressed }) => [
+									styles.ctaBtn,
+									!isComplete ? styles.ctaBtnDisabled : null,
+									(pressed && isComplete) ? styles.ctaBtnPressed : null
+								]}
+								onPress={goNext}
+								disabled={!isComplete || isLoggingIn}
+							>
+								{isLoggingIn ? (
+									<ActivityIndicator size="small" color={colors.surface} />
+								) : (
+									<>
+										<Text style={[styles.ctaText, !isComplete ? styles.ctaTextDisabled : null]}>
+											Finish Setup
+										</Text>
+										{isComplete && (
+											<Icon name="celebration" size={20} color={colors.surface} />
+										)}
+									</>
+								)}
+							</Pressable>
+						</Animated.View>
+					)}
 
 				</Animated.View>
 			</KeyboardAvoidingView>

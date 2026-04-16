@@ -543,7 +543,7 @@ const DashboardScreen: React.FC = () => {
               ]}
             >
               <View style={styles.sdsCardTopRow}>
-                <Text style={[styles.sdsCardTitle, { color: sdsMood.titleColor }]}>SDS Score</Text>
+                <Text style={[styles.sdsCardTitle, { color: sdsMood.titleColor }]}>BSI Score</Text>
                 <View style={[styles.sdsMoodBadge, { backgroundColor: sdsMood.badgeBg }]}>
                   <Icon name={sdsMood.badgeIcon} size={15} color={sdsMood.badgeText} />
                   <Text style={[styles.sdsMoodBadgeText, { color: sdsMood.badgeText }]}>
