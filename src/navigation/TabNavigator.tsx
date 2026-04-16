@@ -9,7 +9,7 @@ import { FloatingTabBar } from './FloatingTabBar';
 import DashboardScreen from '../screens/DashboardScreen';
 import MissionsStack from './MissionsStack';
 import GoalsScreen from '../screens/GoalsScreen';
-import AnalyticsScreen from '../screens/AnalyticsScreen';
+import AnalyticsScreen from '../screens/analytics/AnalyticsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();

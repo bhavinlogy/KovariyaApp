@@ -14,17 +14,25 @@ function hash(s: string): number {
   return Math.abs(h);
 }
 
-/* ─── SDS score ─── */
+/* ─── BSI (Behaviour Score Index) — renamed from SDS ─── */
 export type SdsAnalytics = {
   percent: number;
   trend: number;
   weekHistory: number[]; // 4 weeks rolling (oldest → newest)
+  label: string; // Needs Effort / Average / Consistent / Excellent
 };
 
+function bsiLabel(pct: number): string {
+  if (pct >= 85) return 'Excellent';
+  if (pct >= 70) return 'Consistent';
+  if (pct >= 50) return 'Average';
+  return 'Needs Effort';
+}
+
 const SDS_BY_CHILD: Record<string, SdsAnalytics> = {
-  '1': { percent: 78, trend: 5, weekHistory: [68, 71, 73, 78] },
-  '2': { percent: 61, trend: -4, weekHistory: [72, 68, 65, 61] },
-  '3': { percent: 89, trend: 8, weekHistory: [74, 79, 81, 89] },
+  '1': { percent: 78, trend: 5, weekHistory: [68, 71, 73, 78], label: bsiLabel(78) },
+  '2': { percent: 61, trend: -4, weekHistory: [72, 68, 65, 61], label: bsiLabel(61) },
+  '3': { percent: 89, trend: 8, weekHistory: [74, 79, 81, 89], label: bsiLabel(89) },
 };
 
 export function getSdsAnalytics(childId: string): SdsAnalytics {
@@ -35,12 +43,13 @@ export function getSdsAnalytics(childId: string): SdsAnalytics {
 export type FamilyScoreData = {
   score: number;
   trend: number;
+  subtitle: string;
 };
 
 const FS_BY_CHILD: Record<string, FamilyScoreData> = {
-  '1': { score: 84, trend: 3 },
-  '2': { score: 72, trend: -2 },
-  '3': { score: 91, trend: 6 },
+  '1': { score: 84, trend: 4, subtitle: 'Parental Involvement' },
+  '2': { score: 72, trend: -2, subtitle: 'Parental Involvement' },
+  '3': { score: 91, trend: 6, subtitle: 'Parental Involvement' },
 };
 
 export function getFamilyScore(childId: string): FamilyScoreData {
@@ -52,16 +61,34 @@ export type TrustMeterData = {
   level: number; // 0-100
   label: string;
   trend: number;
+  subtitle: string;
 };
 
 const TRUST_BY_CHILD: Record<string, TrustMeterData> = {
-  '1': { level: 72, label: 'Reliable', trend: 4 },
-  '2': { level: 54, label: 'Building', trend: -3 },
-  '3': { level: 88, label: 'Trusted', trend: 7 },
+  '1': { level: 72, label: 'Reliable', trend: 0, subtitle: 'Trustworthy Behavior' },
+  '2': { level: 54, label: 'Building', trend: -3, subtitle: 'Trustworthy Behavior' },
+  '3': { level: 88, label: 'Trusted', trend: 7, subtitle: 'Trustworthy Behavior' },
 };
 
 export function getTrustMeter(childId: string): TrustMeterData {
   return TRUST_BY_CHILD[childId] ?? TRUST_BY_CHILD['1'];
+}
+
+/* ─── Parent Consistency Score ─── */
+export type ParentConsistencyData = {
+  score: number;
+  trend: number;
+  subtitle: string;
+};
+
+const PC_BY_CHILD: Record<string, ParentConsistencyData> = {
+  '1': { score: 85, trend: 3, subtitle: 'Tracking Accuracy' },
+  '2': { score: 68, trend: -5, subtitle: 'Tracking Accuracy' },
+  '3': { score: 92, trend: 4, subtitle: 'Tracking Accuracy' },
+};
+
+export function getParentConsistency(childId: string): ParentConsistencyData {
+  return PC_BY_CHILD[childId] ?? PC_BY_CHILD['1'];
 }
 
 /* ─── Aspect Scores ─── */
@@ -144,6 +171,78 @@ export function getMonthlyGraph(childId: string): MonthlyGraphRow[] {
       trust: clamp(trust.level + jitter - (3 - i) * 3, 20, 100),
     };
   });
+}
+
+/* ─── Dual Trend Data (BSI + Parent Consistency lines) ─── */
+export type DualTrendRow = {
+  label: string;
+  bsi: number;
+  parentConsistency: number;
+};
+
+export function getDualTrendData(childId: string): DualTrendRow[] {
+  const bsi = getSdsAnalytics(childId);
+  const pc = getParentConsistency(childId);
+  return WEEK_DAYS.map((day, i) => {
+    const h = hash(`${childId}:dual:${i}`);
+    const jitter = (h % 9) - 4;
+    return {
+      label: day,
+      bsi: clamp(bsi.percent + jitter - (6 - i) * 1.5, 30, 100),
+      parentConsistency: clamp(pc.score + jitter - (6 - i) * 1.2, 30, 100),
+    };
+  });
+}
+
+/* ─── Daily Behaviour Score (DBS) heatmap data ─── */
+export type DailyBehaviourScore = {
+  date: string; // YYYY-MM-DD
+  score: number | null; // null = no data
+};
+
+export function getDailyBehaviourScores(childId: string, year: number, month: number): DailyBehaviourScore[] {
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const today = new Date();
+  const result: DailyBehaviourScore[] = [];
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateObj = new Date(year, month, d);
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    // Future dates have no data
+    if (dateObj > today) {
+      result.push({ date: dateStr, score: null });
+      continue;
+    }
+
+    const h = hash(`${childId}:dbs:${dateStr}`);
+    // ~15% chance of no data
+    if (h % 7 === 0) {
+      result.push({ date: dateStr, score: null });
+    } else {
+      const score = clamp(40 + (h % 61), 20, 100);
+      result.push({ date: dateStr, score });
+    }
+  }
+  return result;
+}
+
+/* ─── Summary Counters ─── */
+export type SummaryCounters = {
+  totalLogs: number;
+  activeDays: number;
+  totalEntries: number;
+  streak: number;
+};
+
+const COUNTERS_BY_CHILD: Record<string, SummaryCounters> = {
+  '1': { totalLogs: 88, activeDays: 14, totalEntries: 30, streak: 8 },
+  '2': { totalLogs: 42, activeDays: 8, totalEntries: 18, streak: 3 },
+  '3': { totalLogs: 124, activeDays: 21, totalEntries: 45, streak: 14 },
+};
+
+export function getSummaryCounters(childId: string): SummaryCounters {
+  return COUNTERS_BY_CHILD[childId] ?? COUNTERS_BY_CHILD['1'];
 }
 
 /* ─── AI Guidance ─── */
