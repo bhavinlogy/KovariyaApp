@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors, spacing, textStyles, borderRadius } from '../../../theme';
 import { scoreColor } from '../utils';
@@ -35,10 +36,12 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 			label: 'Family Score',
 			sublabel: fs.subtitle,
 			delay: 100,
-			trendIcon: fs.trend >= 0 ? 'arrow-upward' : 'arrow-downward',
-			trendText: `${fs.trend >= 0 ? '+' : ''}${fs.trend}% this week`,
+			trendIcon: fs.trend >= 0 ? 'trending-up' : 'trending-down',
+			trendText: `${fs.trend}%`,
 			trendColor: fs.trend >= 0 ? colors.growth : colors.error,
 			labelColor: undefined,
+			accentColor: colors.primary,
+			icon: 'family-restroom',
 		},
 		{
 			value: trust.level,
@@ -49,16 +52,20 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 			trendText: trust.trend === 0 ? '0%' : trust.trend > 0 ? `+${trust.trend}%` : `${trust.trend}%`,
 			trendColor: trust.trend >= 0 ? colors.growth : colors.error,
 			labelColor: scoreColor(trust.level),
+			accentColor: colors.accent,
+			icon: 'favorite',
 		},
 		{
 			value: pc.score,
-			label: 'Parent Consistency',
+			label: 'Consistency',
 			sublabel: pc.subtitle,
 			delay: 300,
-			trendIcon: pc.trend >= 0 ? 'arrow-upward' : 'arrow-downward',
-			trendText: `${pc.trend >= 0 ? '+' : ''}${pc.trend}% this week`,
+			trendIcon: pc.trend >= 0 ? 'trending-up' : 'trending-down',
+			trendText: `${pc.trend}%`,
 			trendColor: pc.trend >= 0 ? colors.growth : colors.error,
 			labelColor: undefined,
+			accentColor: colors.growth,
+			icon: 'verified',
 		},
 	];
 
@@ -67,33 +74,37 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 			entering={FadeInDown.delay(80).springify().damping(18).stiffness(220)}
 		>
 			<View style={s.kpiRow}>
-				{gauges.map((g) => (
+				{gauges.map((g, idx) => (
 					<View key={g.label} style={s.kpiCard}>
-						<SemiCircleGauge
-							percent={g.value}
-							size={110}
-							strokeWidth={10}
-							fillColor={scoreColor(g.value)}
-							delay={g.delay}
-						/>
-						<View style={s.kpiCenterOverlay}>
-							<AnimatedNumber
-								value={g.value}
-								suffix="%"
+						{idx > 0 && <View style={s.kpiCardDivider} />}
+						<View style={s.kpiCardBody}>
+							<SemiCircleGauge
+								percent={g.value}
+								size={90}
+								strokeWidth={10}
+								fillColor={scoreColor(g.value)}
 								delay={g.delay}
-								duration={1100}
-								style={[s.kpiValue, { color: scoreColor(g.value), textAlign: 'center' }]}
 							/>
-						</View>
-						<Text style={[s.kpiLabel, g.labelColor ? { color: g.labelColor } : undefined]}>
-							{g.label}
-						</Text>
-						<Text style={s.kpiSublabel}>{g.sublabel}</Text>
-						<View style={s.kpiTrendRow}>
-							<Icon name={g.trendIcon} size={12} color={g.trendColor} />
-							<Text style={[s.kpiTrendText, { color: g.trendColor }]}>
-								{g.trendText}
+							<View style={s.kpiCenterOverlay}>
+								<AnimatedNumber
+									value={g.value}
+									suffix="%"
+									delay={g.delay}
+									duration={1100}
+									style={[s.kpiValue, { color: scoreColor(g.value), textAlign: 'center' }]}
+								/>
+							</View>
+							<Text style={[s.kpiLabel, g.labelColor ? { color: g.labelColor } : undefined]}>
+								{g.label}
 							</Text>
+							<Text style={s.kpiSublabel} numberOfLines={1}>{g.sublabel}</Text>
+							<View style={[s.kpiTrendPill, { backgroundColor: `${g.trendColor}12` }]}>
+								{g.label != 'Trust Meter' && <Text style={[s.kpiTrendText, { color: g.trendColor }]}>This Week</Text>}
+								<Icon name={g.trendIcon} size={11} color={g.trendColor} />
+								<Text style={[s.kpiTrendText, { color: g.trendColor }]}>
+									{g.trendText}
+								</Text>
+							</View>
 						</View>
 					</View>
 				))}
@@ -110,34 +121,48 @@ export default React.memo(SupportGauges);
 const s = StyleSheet.create({
 	kpiRow: {
 		flexDirection: 'row',
-		paddingHorizontal: spacing.lg,
-		gap: spacing.sm,
 		marginBottom: spacing.md,
-	},
-	kpiCard: {
-		flex: 1,
 		backgroundColor: colors.surface,
 		borderRadius: borderRadius.xl,
-		padding: spacing.sm,
-		paddingTop: spacing.md,
-		alignItems: 'center',
+		overflow: 'hidden',
 		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: colors.border,
+		borderColor: 'rgba(17,17,17,0.06)',
 		...Platform.select({
 			ios: {
 				shadowColor: colors.ink,
-				shadowOffset: { width: 0, height: 4 },
-				shadowOpacity: 0.06,
-				shadowRadius: 16,
+				shadowOffset: { width: 0, height: 6 },
+				shadowOpacity: 0.07,
+				shadowRadius: 18,
 			},
-			android: { elevation: 3 },
+			android: { elevation: 4 },
 			default: {},
 		}),
+	},
+	kpiCard: {
+		flex: 1,
 		position: 'relative',
+	},
+	kpiCardDivider: {
+		position: 'absolute',
+		left: 0,
+		top: spacing.md,
+		bottom: spacing.md,
+		width: StyleSheet.hairlineWidth,
+		backgroundColor: 'rgba(17,17,17,0.10)',
+	},
+	kpiAccentBar: {
+		height: 3,
+		width: '100%',
+	},
+	kpiCardBody: {
+		padding: spacing.sm,
+		paddingVertical: spacing.md,
+		alignItems: 'center',
+		// backgroundColor: 'red'
 	},
 	kpiCenterOverlay: {
 		position: 'absolute',
-		top: spacing.md + 28,
+		top: spacing.md + 3 + 28,
 		alignItems: 'center',
 	},
 	kpiValue: {
@@ -147,27 +172,32 @@ const s = StyleSheet.create({
 	},
 	kpiLabel: {
 		...textStyles.caption,
-		fontWeight: '700',
+		fontWeight: '800',
 		color: colors.ink,
 		textAlign: 'center',
-		marginTop: -4,
+		marginTop: -2,
 		fontSize: 11,
+		letterSpacing: -0.1,
 	},
 	kpiSublabel: {
 		fontSize: 9,
 		color: colors.textMuted,
 		textAlign: 'center',
-		marginTop: 1,
+		marginTop: 2,
 		letterSpacing: 0.1,
 	},
-	kpiTrendRow: {
+	kpiTrendPill: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 2,
-		marginTop: 4,
+		gap: 3,
+		marginTop: 6,
+		paddingHorizontal: spacing.sm,
+		paddingVertical: 3,
+		borderRadius: borderRadius.full,
 	},
 	kpiTrendText: {
-		fontSize: 9,
+		fontSize: 10,
 		fontWeight: '700',
+		letterSpacing: 0.1,
 	},
 });

@@ -5,6 +5,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import { Card } from '../../../components';
 import { colors, spacing, textStyles, borderRadius } from '../../../theme';
+import { analyticsStyles as shared } from '../styles';
 import { heatmapColor } from '../utils';
 import type { DailyBehaviourScore } from '../../../data/analyticsData';
 
@@ -27,6 +28,12 @@ const MONTH_NAMES = [
 	'January', 'February', 'March', 'April', 'May', 'June',
 	'July', 'August', 'September', 'October', 'November', 'December',
 ];
+const LEGEND_ITEMS = [
+	{ label: 'Needs Effort', color: '#E87070' },
+	{ label: 'Average', color: '#E8A04A' },
+	{ label: 'Consistent', color: '#2E8B57' },
+	{ label: 'Excellent', color: '#7BCF7B' },
+];
 
 /* ═══════════════════════════════════════════════════════════════════ */
 /*  Component                                                         */
@@ -39,9 +46,12 @@ const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
 	onNextMonth,
 }) => {
 	const { width: windowWidth } = useWindowDimensions();
-	const cardInnerWidth = windowWidth - spacing.lg * 2 - spacing.md * 2;
+	const cardInnerWidth = windowWidth - spacing.xl * 2 - spacing.md * 2;
 	const cellGap = 4;
 	const cellSize = Math.floor((cardInnerWidth - cellGap * 6) / 7);
+
+	/* Responsive legend widths — capped on tablets, snug on phones */
+	const legendMaxWidth = Math.min(cardInnerWidth, windowWidth * 0.85, 480);
 
 	const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
 
@@ -62,110 +72,81 @@ const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
 			<Card variant="elevated" padding={spacing.md} style={s.heatmapCard}>
 				{/* Header */}
 				<View style={s.heatmapHeader}>
-					<View>
-						<Text style={s.sectionTitle}>Daily Behaviour Score</Text>
-						<Text style={s.sectionSubtitle}>Calendar heatmap</Text>
+					<View style={s.heatmapHeaderLeft}>
+						<View style={s.heatmapIconWrap}>
+							<Icon name="grid-view" size={16} color={colors.primary} />
+						</View>
+						<View>
+							{/* <Text style={shared.sectionEyebrow}>Daily rhythm</Text> */}
+							<Text style={s.sectionTitle}>Aspect Scores</Text>
+						</View>
 					</View>
-					<View style={s.heatmapNav}>
+					<View style={s.heatmapNavWrap}>
+						<Text style={s.heatmapMonthPill}>{MONTH_NAMES[month].slice(0, 3)} {year}</Text>
+						{/* <View style={s.heatmapNav}>
 						<Pressable onPress={onPrevMonth} style={s.heatmapNavBtn}>
 							<Icon name="chevron-left" size={20} color={colors.textSecondary} />
 						</Pressable>
 						<Pressable onPress={onNextMonth} style={s.heatmapNavBtn}>
 							<Icon name="chevron-right" size={20} color={colors.textSecondary} />
 						</Pressable>
+						</View> */}
 					</View>
 				</View>
 
-				{/* Month label */}
-				<Text style={s.heatmapMonthLabel}>{MONTH_NAMES[month]} {year}</Text>
+				<View style={s.calendarPanel}>
+					<View style={[s.heatmapRow, { gap: cellGap, marginBottom: cellGap }]}>
+						{DAYS_HEADER.map((d, i) => (
+							<View key={i} style={{ width: cellSize, alignItems: 'center' }}>
+								<Text style={s.heatmapDayHeader}>{d}</Text>
+							</View>
+						))}
+					</View>
 
-				{/* Day headers */}
-				<View style={[s.heatmapRow, { gap: cellGap, marginBottom: cellGap }]}>
-					{DAYS_HEADER.map((d, i) => (
-						<View key={i} style={{ width: cellSize, alignItems: 'center' }}>
-							<Text style={s.heatmapDayHeader}>{d}</Text>
+					{rows.map((row, ri) => (
+						<View key={ri} style={[s.heatmapRow, { gap: cellGap, marginBottom: cellGap }]}>
+							{row.map((cell, ci) => {
+								if (!cell) {
+									return <View key={`empty-${ri}-${ci}`} style={[s.emptyCell, { width: cellSize, height: cellSize }]} />;
+								}
+								const bg = heatmapColor(cell.score);
+								const dayNum = parseInt(cell.date.split('-')[2], 10);
+								return (
+									<View
+										key={cell.date}
+										style={[
+											s.dayCell,
+											{
+												width: cellSize,
+												height: cellSize,
+												backgroundColor: bg,
+											},
+										]}
+									>
+										<Text style={[s.dayCellText, cell.score === null && s.dayCellTextMuted]}>
+											{dayNum}
+										</Text>
+									</View>
+								);
+							})}
+							{row.length < 7 &&
+								Array.from({ length: 7 - row.length }).map((_, ti) => (
+									<View key={`pad-${ri}-${ti}`} style={[s.emptyCell, { width: cellSize, height: cellSize }]} />
+								))}
 						</View>
 					))}
 				</View>
 
-				{/* Calendar grid */}
-				{rows.map((row, ri) => (
-					<View key={ri} style={[s.heatmapRow, { gap: cellGap, marginBottom: cellGap }]}>
-						{row.map((cell, ci) => {
-							if (!cell) {
-								return (
-									<View
-										key={`empty-${ri}-${ci}`}
-										style={{
-											width: cellSize,
-											height: cellSize,
-											borderRadius: 6,
-											backgroundColor: 'transparent',
-										}}
-									/>
-								);
-							}
-							const bg = heatmapColor(cell.score);
-							const dayNum = parseInt(cell.date.split('-')[2], 10);
-							return (
-								<View
-									key={cell.date}
-									style={{
-										width: cellSize,
-										height: cellSize,
-										borderRadius: 6,
-										backgroundColor: bg,
-										alignItems: 'center',
-										justifyContent: 'center',
-									}}
-								>
-									<Text
-										style={{
-											fontSize: 10,
-											fontWeight: '700',
-											color: cell.score === null ? colors.textMuted : '#FFF',
-											opacity: cell.score === null ? 0.6 : 1,
-										}}
-									>
-										{dayNum}
-									</Text>
-								</View>
-							);
-						})}
-						{/* Fill trailing empty cells to keep alignment */}
-						{row.length < 7 &&
-							Array.from({ length: 7 - row.length }).map((_, ti) => (
-								<View
-									key={`pad-${ri}-${ti}`}
-									style={{
-										width: cellSize,
-										height: cellSize,
-										borderRadius: 6,
-										backgroundColor: 'transparent',
-									}}
-								/>
-							))}
-					</View>
-				))}
-
 				{/* Legend */}
-				<View style={s.heatmapLegendRow}>
-					<View style={s.heatmapLegendItem}>
-						<View style={[s.heatmapLegendDot, { backgroundColor: '#E87070' }]} />
-						<Text style={s.heatmapLegendText}>Needs Effort</Text>
-					</View>
-					<View style={s.heatmapLegendItem}>
-						<View style={[s.heatmapLegendDot, { backgroundColor: '#F5C142' }]} />
-						<Text style={s.heatmapLegendText}>Average</Text>
-					</View>
-					<View style={s.heatmapLegendItem}>
-						<View style={[s.heatmapLegendDot, { backgroundColor: '#7BCF7B' }]} />
-						<Text style={s.heatmapLegendText}>Consistent</Text>
-					</View>
-					<View style={s.heatmapLegendItem}>
-						<View style={[s.heatmapLegendDot, { backgroundColor: '#2E8B57' }]} />
-						<Text style={s.heatmapLegendText}>Excellent</Text>
-					</View>
+				<View style={[s.heatmapLegendRow, { maxWidth: legendMaxWidth }]}>
+					{LEGEND_ITEMS.map((item) => (
+						<View key={item.label} style={s.legendItem}>
+							<View style={[s.legendDot, { backgroundColor: item.color }]} />
+							<Text style={[s.legendItemText, { color: item.color }]}>
+								{item.label}
+							</Text>
+						</View>
+					))}
 				</View>
 			</Card>
 		</Animated.View>
@@ -179,14 +160,35 @@ export default React.memo(HeatmapCalendar);
 /* ═══════════════════════════════════════════════════════════════════ */
 const s = StyleSheet.create({
 	heatmapCard: {
-		marginHorizontal: spacing.lg,
 		marginBottom: spacing.sm,
+		backgroundColor: 'rgba(255,255,255,0.96)',
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17,17,17,0.05)',
 	},
 	heatmapHeader: {
 		flexDirection: 'row',
 		alignItems: 'flex-start',
 		justifyContent: 'space-between',
 		marginBottom: spacing.md,
+	},
+	heatmapHeaderLeft: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+		flex: 1,
+	},
+	heatmapIconWrap: {
+		width: 34,
+		height: 34,
+		borderRadius: 17,
+		backgroundColor: 'rgba(124,106,232,0.08)',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginTop: 2,
+	},
+	heatmapNavWrap: {
+		alignItems: 'flex-end',
+		gap: spacing.xs,
 	},
 	sectionTitle: {
 		...textStyles.headingMedium,
@@ -195,14 +197,20 @@ const s = StyleSheet.create({
 		color: colors.ink,
 		letterSpacing: -0.3,
 	},
-	sectionSubtitle: {
-		...textStyles.caption,
-		color: colors.textSecondary,
-		marginTop: 2,
-	},
 	heatmapNav: {
 		flexDirection: 'row',
 		gap: 4,
+	},
+	heatmapMonthPill: {
+		...textStyles.caption,
+		fontSize: 11,
+		fontWeight: '700',
+		color: colors.primary,
+		paddingHorizontal: spacing.md,
+		paddingVertical: 6,
+		borderRadius: borderRadius.full,
+		backgroundColor: colors.lavenderSoft,
+		overflow: 'hidden',
 	},
 	heatmapNavBtn: {
 		width: 32,
@@ -214,14 +222,13 @@ const s = StyleSheet.create({
 		borderWidth: StyleSheet.hairlineWidth,
 		borderColor: colors.border,
 	},
-	heatmapMonthLabel: {
-		...textStyles.caption,
-		fontWeight: '700',
-		color: colors.textSecondary,
-		textAlign: 'center',
+	calendarPanel: {
+		backgroundColor: '#F9F8FD',
+		borderRadius: borderRadius.xl,
+		padding: spacing.sm + 2,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(124, 106, 232, 0.10)',
 		marginBottom: spacing.sm,
-		textTransform: 'uppercase',
-		letterSpacing: 0.5,
 	},
 	heatmapRow: {
 		flexDirection: 'row',
@@ -233,26 +240,52 @@ const s = StyleSheet.create({
 		color: colors.textMuted,
 		letterSpacing: 0.2,
 	},
+	emptyCell: {
+		borderRadius: 10,
+		backgroundColor: 'transparent',
+	},
+	dayCell: {
+		borderRadius: 10,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(255,255,255,0.4)',
+	},
+	dayCellText: {
+		fontSize: 10,
+		fontWeight: '800',
+		color: '#FFF',
+	},
+	dayCellTextMuted: {
+		color: colors.textMuted,
+		opacity: 0.7,
+	},
 	heatmapLegendRow: {
 		flexDirection: 'row',
-		justifyContent: 'center',
-		gap: spacing.sm,
+		alignItems: 'center',
+		justifyContent: 'space-between',
 		marginTop: spacing.md,
-		flexWrap: 'wrap',
+		paddingHorizontal: spacing.xs,
+		alignSelf: 'center',
+		width: '100%',
+		// flexWrap: 'wrap',
+		rowGap: spacing.xs,
+		columnGap: spacing.sm,
 	},
-	heatmapLegendItem: {
+	legendItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 4,
+		gap: 6,
+		// backgroundColor: 'red'
 	},
-	heatmapLegendDot: {
-		width: 8,
-		height: 8,
-		borderRadius: 4,
+	legendDot: {
+		width: 9,
+		height: 9,
+		borderRadius: 4.5,
 	},
-	heatmapLegendText: {
-		fontSize: 10,
-		fontWeight: '600',
-		color: colors.textSecondary,
+	legendItemText: {
+		fontSize: 9,
+		fontWeight: '700',
+		letterSpacing: 0.1,
 	},
 });

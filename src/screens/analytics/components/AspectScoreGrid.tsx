@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import { colors, spacing, textStyles, borderRadius } from '../../../theme';
-import { scoreColor, scoreTint, scoreBorder } from '../utils';
 import { RoundGauge } from './gauges';
 import type { AspectScoreRow } from '../../../data/analyticsData';
 
@@ -19,22 +18,7 @@ interface AspectScoreGridProps {
 /*  Component                                                         */
 /* ═══════════════════════════════════════════════════════════════════ */
 const AspectScoreGrid: React.FC<AspectScoreGridProps> = ({ aspects }) => {
-	const { width: windowWidth } = useWindowDimensions();
 	const [period, setPeriod] = useState<'weekly' | 'monthly'>('weekly');
-
-	/**
-	 * Match the Dashboard's grid layout:
-	 * Row 1: 3 equal columns · Row 2: 2 equal columns
-	 * Same gap G between all neighbours.
-	 */
-	const metrics = useMemo(() => {
-		const horizontalPadding = spacing.lg * 2;
-		const G = spacing.md;
-		const inner = windowWidth - horizontalPadding;
-		const width3 = Math.max(96, Math.floor((inner - 2 * G) / 3));
-		const width2 = Math.max(140, Math.floor((inner - G) / 2));
-		return { width3, width2, gap: G };
-	}, [windowWidth]);
 
 	const row1 = aspects.slice(0, 3);
 	const row2 = aspects.slice(3, 5);
@@ -89,26 +73,25 @@ const AspectScoreGrid: React.FC<AspectScoreGridProps> = ({ aspects }) => {
 				</View>
 
 				{/* Row 1: 3 columns */}
-				<View style={[s.gridRow, { gap: metrics.gap, marginBottom: metrics.gap }]}>
+				<View style={s.gridRow}>
 					{row1.map((aspect, idx) => (
-						<AspectTile
-							key={aspect.id}
-							aspect={aspect}
-							width={metrics.width3}
-							animDelay={idx * 80}
-						/>
+						<View key={aspect.id} style={s.aspectCol}>
+							{idx > 0 && <View style={s.colDivider} />}
+							<AspectTile aspect={aspect} animDelay={idx * 80} />
+						</View>
 					))}
 				</View>
 
+				{/* Horizontal divider between rows */}
+				<View style={s.rowDivider} />
+
 				{/* Row 2: 2 columns */}
-				<View style={[s.gridRow, { gap: metrics.gap }]}>
+				<View style={s.gridRow}>
 					{row2.map((aspect, idx) => (
-						<AspectTile
-							key={aspect.id}
-							aspect={aspect}
-							width={metrics.width2}
-							animDelay={(3 + idx) * 80}
-						/>
+						<View key={aspect.id} style={s.aspectCol}>
+							{idx > 0 && <View style={s.colDivider} />}
+							<AspectTile aspect={aspect} animDelay={(3 + idx) * 80} />
+						</View>
 					))}
 				</View>
 			</View>
@@ -123,33 +106,19 @@ export default React.memo(AspectScoreGrid);
 /* ═══════════════════════════════════════════════════════════════════ */
 interface AspectTileProps {
 	aspect: AspectScoreRow;
-	width: number;
 	animDelay: number;
 }
 
 const AspectTile: React.FC<AspectTileProps> = React.memo(({
 	aspect,
-	width,
 	animDelay,
 }) => {
-	const tileScoreColor = scoreColor(aspect.score);
-	const tintBg = scoreTint(aspect.score);
-	const tintBorderColor = scoreBorder(aspect.score);
 	const trendColor = aspect.change >= 0 ? colors.growth : colors.error;
 
 	return (
-		<View
-			style={[
-				s.aspectCard,
-				{
-					width,
-					backgroundColor: tintBg,
-					borderColor: tintBorderColor,
-				},
-			]}
-		>
+		<View style={[s.aspectCard]}>
 			{/* Top accent bar */}
-			<View style={[s.aspectTopAccent, { backgroundColor: aspect.accent }]} />
+			{/* <View style={[s.aspectTopAccent, { backgroundColor: aspect.accent }]} /> */}
 
 			{/* Card body */}
 			<View style={s.aspectBody}>
@@ -180,13 +149,14 @@ const AspectTile: React.FC<AspectTileProps> = React.memo(({
 
 				{/* Trend indicator */}
 				<View style={[s.aspectTrendPill, { backgroundColor: `${trendColor}14` }]}>
+					<Text style={[s.aspectTrendText, { color: trendColor }]}>This Week</Text>
 					<Icon
 						name={aspect.change >= 0 ? 'trending-up' : 'trending-down'}
 						size={12}
 						color={trendColor}
 					/>
 					<Text style={[s.aspectTrendText, { color: trendColor }]}>
-						{aspect.change >= 0 ? '+' : ''}{aspect.change}%
+						{aspect.change}%
 					</Text>
 				</View>
 			</View>
@@ -199,8 +169,24 @@ const AspectTile: React.FC<AspectTileProps> = React.memo(({
 /* ═══════════════════════════════════════════════════════════════════ */
 const s = StyleSheet.create({
 	sectionWrap: {
-		paddingHorizontal: spacing.lg,
+		// flexDirection: 'row',
 		marginBottom: spacing.md,
+		padding: spacing.md,
+		backgroundColor: colors.surface,
+		borderRadius: borderRadius.xl,
+		overflow: 'hidden',
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17,17,17,0.06)',
+		...Platform.select({
+			ios: {
+				shadowColor: colors.ink,
+				shadowOffset: { width: 0, height: 6 },
+				shadowOpacity: 0.07,
+				shadowRadius: 18,
+			},
+			android: { elevation: 4 },
+			default: {},
+		}),
 	},
 	sectionHeaderRow: {
 		flexDirection: 'row',
@@ -265,24 +251,36 @@ const s = StyleSheet.create({
 	/* Grid */
 	gridRow: {
 		flexDirection: 'row',
-		justifyContent: 'flex-start',
+		alignItems: 'center',
+		justifyContent: 'center',
+		gap:6
+	},
+	aspectCol: {
+		flex: 1,
+		position: 'relative',
+	},
+	colDivider: {
+		position: 'absolute',
+		left: -3,
+		top: spacing.md,
+		bottom: spacing.md,
+		width: StyleSheet.hairlineWidth,
+		// width: 5,
+
+		backgroundColor: 'rgba(17,17,17,0.10)',
+		zIndex: 1,
+	},
+	rowDivider: {
+		height: StyleSheet.hairlineWidth,
+		backgroundColor: 'rgba(17,17,17,0.08)',
+		marginVertical: spacing.sm,
+		marginHorizontal: spacing.md,
 	},
 
-	/* Card */
+	/* Tile (sits inside the unified section card — no own border/shadow) */
 	aspectCard: {
-		borderRadius: borderRadius.large,
-		borderWidth: StyleSheet.hairlineWidth,
+		flex: 1,
 		overflow: 'hidden',
-		...Platform.select({
-			ios: {
-				shadowColor: colors.ink,
-				shadowOffset: { width: 0, height: 3 },
-				shadowOpacity: 0.06,
-				shadowRadius: 8,
-			},
-			android: { elevation: 2 },
-			default: {},
-		}),
 	},
 	aspectTopAccent: {
 		height: 3,
@@ -290,21 +288,21 @@ const s = StyleSheet.create({
 	},
 	aspectBody: {
 		paddingHorizontal: spacing.xs,
-		paddingTop: spacing.sm,
-		paddingBottom: spacing.sm,
+		paddingTop: spacing.sm + 4,
+		paddingBottom: spacing.sm + 4,
 		alignItems: 'center',
 	},
 	aspectIconWrap: {
-		width: 36,
-		height: 36,
-		borderRadius: 18,
+		width: 38,
+		height: 38,
+		borderRadius: 19,
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: spacing.xs,
 	},
 	aspectName: {
-		fontSize: 13,
-		fontWeight: '800',
+		fontSize: 12,
+		fontWeight: '500',
 		color: colors.ink,
 		letterSpacing: -0.15,
 		textAlign: 'center',
@@ -321,7 +319,7 @@ const s = StyleSheet.create({
 		borderRadius: borderRadius.full,
 	},
 	aspectTrendText: {
-		fontSize: 10,
+		fontSize: 9,
 		fontWeight: '700',
 		letterSpacing: 0.1,
 	},

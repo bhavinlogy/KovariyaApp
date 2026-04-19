@@ -39,10 +39,10 @@ export function heatmapColor(score: number | null): string {
  * to give a gentle colour wash without being loud.
  */
 export function scoreTint(pct: number): string {
-	if (pct >= 85) return 'rgba(46, 139, 87, 0.07)';  // green wash
-	if (pct >= 70) return 'rgba(92, 184, 92, 0.07)';  // light green wash
-	if (pct >= 50) return 'rgba(232, 160, 74, 0.07)';  // amber wash
-	return 'rgba(232, 93, 93, 0.07)';                   // red wash
+	if (pct >= 85) return 'rgb(198, 221, 205)';  // green wash
+	if (pct >= 70) return 'rgb(205, 252, 205)';  // light green wash
+	if (pct >= 50) return 'rgba(232, 160, 74)';  // amber wash
+	return 'rgba(232, 93, 93)';                   // red wash
 }
 
 /**

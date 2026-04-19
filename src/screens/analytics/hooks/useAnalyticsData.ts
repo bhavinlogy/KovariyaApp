@@ -11,7 +11,10 @@ import {
 	getSummaryCounters,
 	getGuidance,
 	getBadges,
+	getGoalWiseReport,
+	getMonthlyPdfReport,
 	getStrengthsWeaknesses,
+	type SummaryPeriod,
 } from '../../../data/analyticsData';
 
 /**
@@ -36,7 +39,11 @@ export function useAnalyticsData() {
 	);
 	const aspects = useMemo(() => getAspectScores(selectedChild.id), [selectedChild.id]);
 	const dualTrend = useMemo(() => getDualTrendData(selectedChild.id), [selectedChild.id]);
-	const counters = useMemo(() => getSummaryCounters(selectedChild.id), [selectedChild.id]);
+	const [summaryPeriod, setSummaryPeriod] = useState<SummaryPeriod>('weekly');
+	const counters = useMemo(
+		() => getSummaryCounters(selectedChild.id, summaryPeriod),
+		[selectedChild.id, summaryPeriod]
+	);
 	const guidance = useMemo(() => getGuidance(selectedChild.id), [selectedChild.id]);
 	const badges = useMemo(() => getBadges(selectedChild.id), [selectedChild.id]);
 	const strengthsWeaknesses = useMemo(
@@ -52,6 +59,14 @@ export function useAnalyticsData() {
 	const heatmapData = useMemo(
 		() => getDailyBehaviourScores(selectedChild.id, heatmapYear, heatmapMonth),
 		[selectedChild.id, heatmapYear, heatmapMonth]
+	);
+	const monthlyReport = useMemo(
+		() => getMonthlyPdfReport(selectedChild.id, heatmapYear, heatmapMonth),
+		[selectedChild.id, heatmapYear, heatmapMonth]
+	);
+	const goalWiseReport = useMemo(
+		() => getGoalWiseReport(selectedChild.id),
+		[selectedChild.id]
 	);
 
 	const prevMonth = useCallback(() => {
@@ -87,11 +102,15 @@ export function useAnalyticsData() {
 		guidance,
 		badges,
 		strengthsWeaknesses,
+		monthlyReport,
+		goalWiseReport,
 		heatmapData,
 		heatmapYear,
 		heatmapMonth,
 		prevMonth,
 		nextMonth,
+		summaryPeriod,
+		setSummaryPeriod,
 		bsiPeriod,
 		setBsiPeriod,
 	};

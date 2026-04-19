@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { colors, spacing, textStyles, borderRadius } from '../../../theme';
-import { scoreColor, scoreBg, scoreLabel, scoreTint, scoreBorder } from '../utils';
+import { scoreColor, scoreBg, scoreLabel } from '../utils';
 import { AnimatedNumber, SemiCircleGauge } from './gauges';
 import type { SdsAnalytics, StrengthWeakness } from '../../../data/analyticsData';
 
@@ -37,24 +38,33 @@ const BSIGaugeCard: React.FC<BSIGaugeCardProps> = ({
 	onTogglePeriod,
 }) => {
 	const bsiColor = scoreColor(bsi.percent);
-	const tintBg = scoreTint(bsi.percent);
-	const tintBorder = scoreBorder(bsi.percent);
+
+	/* Build a soft 3-stop wash from the score colour itself.
+	   Hex + 2-digit alpha (00-FF) keeps everything tinted around bsiColor. */
+	const cardGradient = React.useMemo(
+		() =>
+			[
+				`${bsiColor}26`, // ~15% — top-left soft wash
+				`${bsiColor}0F`, // ~6%  — mid soft
+				`${bsiColor}1F`, // ~12% — bottom-right echo
+			] as const,
+		[bsiColor],
+	);
 
 	return (
 		<Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
 			<View style={s.heroSection}>
-				<View
-					style={[
-						s.bsiCard,
-						{
-							backgroundColor: tintBg,
-							borderColor: tintBorder,
-						},
-					]}
+			<LinearGradient
+					colors={cardGradient}
+					start={{ x: 0, y: 0 }}
+					end={{ x: 1, y: 1 }}
+					style={[s.bsiCard, { borderColor: `${bsiColor}26` }]}
 				>
 					{/* Header row with title + toggle */}
 					<View style={s.bsiHeaderRow}>
-						<Text style={s.bsiTitle}>Behaviour Score Index (BSI)</Text>
+						<View style={s.bsiTitleRow}>
+							<Text style={s.bsiTitle}>Behaviour Score Index (BSI)</Text>
+						</View>
 						<View style={s.bsiToggle}>
 							<Pressable
 								onPress={() => onTogglePeriod('weekly')}
@@ -92,38 +102,40 @@ const BSIGaugeCard: React.FC<BSIGaugeCardProps> = ({
 					</View>
 
 					{/* Gauge */}
-					<View style={s.bsiGaugeWrap}>
-						<SemiCircleGauge
-							percent={bsi.percent}
-							size={200}
-							strokeWidth={18}
-							fillColor={bsiColor}
-							trackColor="rgba(0,0,0,0.06)"
-						/>
-						{/* Center overlay */}
-						<View style={s.bsiCenterOverlay}>
-							<AnimatedNumber
-								value={bsi.percent}
-								suffix="%"
-								delay={200}
-								duration={1200}
-								style={[s.bsiBigNumber, { color: bsiColor, textAlign: 'center' }]}
+					<View style={s.gaugeStage}>
+						<View style={s.bsiGaugeWrap}>
+							<SemiCircleGauge
+								percent={bsi.percent}
+								size={196}
+								strokeWidth={16}
+								fillColor={bsiColor}
+								trackColor="rgba(17,17,17,0.05)"
 							/>
-							<View style={s.bsiLabelRow}>
-								<Icon
-									name={
-										bsi.trend > 0
-											? 'trending-up'
-											: bsi.trend < 0
-												? 'trending-down'
-												: 'trending-flat'
-									}
-									size={16}
-									color={bsiColor}
+							{/* Center overlay */}
+							<View style={s.bsiCenterOverlay}>
+								<AnimatedNumber
+									value={bsi.percent}
+									suffix="%"
+									delay={200}
+									duration={1200}
+									style={[s.bsiBigNumber, { color: bsiColor, textAlign: 'center' }]}
 								/>
-								<Text style={[s.bsiLabelText, { color: bsiColor }]}>
-									{scoreLabel(bsi.percent)}
-								</Text>
+								<View style={s.bsiLabelRow}>
+									<Icon
+										name={
+											bsi.trend > 0
+												? 'trending-up'
+												: bsi.trend < 0
+													? 'trending-down'
+													: 'trending-flat'
+										}
+										size={16}
+										color={bsiColor}
+									/>
+									<Text style={[s.bsiLabelText, { color: bsiColor }]}>
+										{scoreLabel(bsi.percent)}
+									</Text>
+								</View>
 							</View>
 						</View>
 					</View>
@@ -132,26 +144,43 @@ const BSIGaugeCard: React.FC<BSIGaugeCardProps> = ({
 					<View style={s.bsiBottomRow}>
 						<View style={[s.bsiTrendPill, { backgroundColor: scoreBg(bsi.percent) }]}>
 							<Text style={[s.bsiTrendText, { color: bsiColor }]}>
-								This Week{' '}
-								{bsi.trend > 0 ? `↑ ${bsi.trend}%` : bsi.trend < 0 ? `↓ ${Math.abs(bsi.trend)}%` : '→ 0%'}
+								This Week
+							</Text>
+							<Icon
+								name={bsi.trend > 0 ? 'trending-up' : bsi.trend < 0 ? 'trending-down' : 'trending-flat'}
+								size={14}
+								color={bsiColor}
+							/>
+							<Text style={[s.bsiTrendText, { color: bsiColor }]}>
+								{bsi.trend}%
 							</Text>
 						</View>
 					</View>
 
 					{/* AI insight line */}
-					<Text style={s.bsiInsightLine}>
-						{childName} is doing well. Focus on{' '}
-						<Text style={{ fontWeight: '800' }}>
-							{weakAreas.length > 0 ? weakAreas[0].name : 'all areas'}
+					<View style={s.bsiInsightWrap}>
+						<Icon name="auto-awesome" size={14} color={colors.primary} style={{ marginTop: 1 }} />
+						<Text style={s.bsiInsightLine}>
+							{childName} is doing well. Focus on{' '}
+							<Text style={{ fontWeight: '800', color: colors.primaryDark }}>
+								{weakAreas.length > 0 ? weakAreas[0].name : 'all areas'}
+							</Text>
+							.
 						</Text>
-						.
-					</Text>
+					</View>
 
-					<TouchableOpacity style={s.viewHistoryBtn}>
-						<Text style={s.viewHistoryText}>View History</Text>
-						<Icon name="chevron-right" size={16} color={colors.primary} />
+					<TouchableOpacity style={s.viewHistoryBtn} activeOpacity={0.85}>
+						<LinearGradient
+							colors={[colors.primary, colors.primaryDark]}
+							start={{ x: 0, y: 0 }}
+							end={{ x: 1, y: 1 }}
+							style={s.viewHistoryInner}
+						>
+							<Text style={s.viewHistoryText}>View History</Text>
+							<Icon name="chevron-right" size={16} color="#FFF" />
+						</LinearGradient>
 					</TouchableOpacity>
-				</View>
+				</LinearGradient>
 			</View>
 		</Animated.View>
 	);
@@ -164,23 +193,23 @@ export default React.memo(BSIGaugeCard);
 /* ═══════════════════════════════════════════════════════════════════ */
 const s = StyleSheet.create({
 	heroSection: {
-		paddingHorizontal: spacing.lg,
-		marginBottom: spacing.xs,
+		marginBottom: spacing.sm,
 	},
 	bsiCard: {
-		flex: 1,
-		borderRadius: borderRadius.xl,
+		borderRadius: borderRadius.xxl,
 		padding: spacing.md,
+		overflow: 'hidden',
 		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: colors.border,
+		borderColor: 'rgba(124,106,232,0.12)',
+		backgroundColor: '#fff',
 		...Platform.select({
 			ios: {
-				shadowColor: colors.ink,
-				shadowOffset: { width: 0, height: 4 },
-				shadowOpacity: 0.06,
-				shadowRadius: 16,
+				shadowColor: colors.primary,
+				shadowOffset: { width: 0, height: 10 },
+				shadowOpacity: 0.08,
+				shadowRadius: 28,
 			},
-			android: { elevation: 3 },
+			android: { elevation: 4 },
 			default: {},
 		}),
 		marginVertical: spacing.sm,
@@ -189,26 +218,40 @@ const s = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		marginBottom: spacing.sm,
+		marginBottom: spacing.xs,
+	},
+	bsiTitleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		flex: 1,
+	},
+	bsiTitleIcon: {
+		width: 28,
+		height: 28,
+		borderRadius: 14,
+		backgroundColor: 'rgba(124,106,232,0.10)',
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
 	bsiTitle: {
 		...textStyles.caption,
-		fontWeight: '700',
-		color: colors.textSecondary,
+		fontWeight: '800',
+		color: colors.ink,
 		textTransform: 'uppercase',
-		letterSpacing: 0.8,
-		flex: 1,
+		letterSpacing: 0.6,
+		fontSize: 11,
 	},
 	bsiToggle: {
 		flexDirection: 'row',
-		backgroundColor: 'rgba(255,255,255,0.7)',
+		backgroundColor: colors.surfaceMuted,
 		borderRadius: borderRadius.full,
 		padding: 2,
 		borderWidth: StyleSheet.hairlineWidth,
 		borderColor: colors.border,
 	},
 	bsiToggleBtn: {
-		paddingHorizontal: spacing.md,
+		paddingHorizontal: spacing.sm,
 		paddingVertical: 5,
 		borderRadius: borderRadius.full,
 	},
@@ -216,9 +259,9 @@ const s = StyleSheet.create({
 		backgroundColor: colors.surface,
 		...Platform.select({
 			ios: {
-				shadowColor: colors.ink,
+				shadowColor: colors.primary,
 				shadowOffset: { width: 0, height: 1 },
-				shadowOpacity: 0.08,
+				shadowOpacity: 0.12,
 				shadowRadius: 4,
 			},
 			android: { elevation: 2 },
@@ -237,18 +280,40 @@ const s = StyleSheet.create({
 	bsiGaugeWrap: {
 		alignItems: 'center',
 		position: 'relative',
-		marginBottom: spacing.xs,
+		paddingTop: spacing.md,
+		paddingBottom: spacing.sm,
+	},
+	gaugeStage: {
+		borderRadius: borderRadius.xl,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(124,106,232,0.08)',
+		marginBottom: spacing.md,
+		// backgroundColor: 'rgba(255,255,255,0.5)',
+	},
+	gaugeHalo: {
+		position: 'absolute',
+		top: 28,
+		width: 140,
+		height: 140,
+		borderRadius: 70,
+	},
+	gaugeHaloOuter: {
+		position: 'absolute',
+		top: 8,
+		width: 180,
+		height: 180,
+		borderRadius: 90,
 	},
 	bsiCenterOverlay: {
 		position: 'absolute',
-		top: 52,
+		top: 62,
 		alignItems: 'center',
 	},
 	bsiBigNumber: {
-		fontSize: 38,
+		fontSize: 42,
 		fontWeight: '800',
 		letterSpacing: -1.5,
-		lineHeight: 42,
+		lineHeight: 44,
 	},
 	bsiLabelRow: {
 		flexDirection: 'row',
@@ -263,43 +328,68 @@ const s = StyleSheet.create({
 	},
 	bsiBottomRow: {
 		alignItems: 'center',
-		marginBottom: spacing.sm,
+		marginBottom: spacing.md,
 	},
 	bsiTrendPill: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingHorizontal: spacing.md,
-		paddingVertical: 5,
+		paddingVertical: 8,
 		borderRadius: borderRadius.full,
-		gap: 4,
+		gap: 5,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17,17,17,0.04)',
 	},
 	bsiTrendText: {
 		fontSize: 12,
 		fontWeight: '700',
 		letterSpacing: 0.2,
 	},
+	bsiInsightWrap: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+		gap: 6,
+		backgroundColor: 'rgba(124,106,232,0.05)',
+		borderRadius: borderRadius.large,
+		paddingHorizontal: spacing.md,
+		paddingVertical: spacing.sm,
+		marginBottom: spacing.md,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(124,106,232,0.10)',
+	},
 	bsiInsightLine: {
 		...textStyles.bodyMedium,
 		fontSize: 13,
 		color: colors.textPrimary,
-		textAlign: 'center',
 		lineHeight: 19,
-		marginBottom: spacing.sm,
-		paddingHorizontal: spacing.sm,
+		flex: 1,
 	},
 	viewHistoryBtn: {
+		borderRadius: borderRadius.large,
+		...Platform.select({
+			ios: {
+				shadowColor: colors.primary,
+				shadowOffset: { width: 0, height: 6 },
+				shadowOpacity: 0.32,
+				shadowRadius: 12,
+			},
+			android: { elevation: 6 },
+			default: {},
+		}),
+	},
+	viewHistoryInner: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		paddingVertical: spacing.sm,
-		borderTopWidth: StyleSheet.hairlineWidth,
-		borderTopColor: 'rgba(0,0,0,0.06)',
-		gap: 4,
+		paddingVertical: spacing.sm + 4,
+		paddingHorizontal: spacing.md,
+		borderRadius: borderRadius.large,
+		gap: 6,
 	},
 	viewHistoryText: {
-		fontSize: 13,
+		fontSize: 14,
 		fontWeight: '700',
-		color: colors.primary,
-		letterSpacing: 0.2,
+		color: '#FFF',
+		letterSpacing: 0.3,
 	},
 });

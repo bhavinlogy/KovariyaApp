@@ -15,7 +15,35 @@ export const analyticsStyles = StyleSheet.create({
 		flex: 1,
 	},
 	scrollContent: {
-		paddingTop: spacing.sm,
+		paddingTop: spacing.xs,
+		paddingHorizontal: spacing.lg,
+	},
+	heroWrap: {
+		marginTop: -spacing.lg,
+		marginBottom: spacing.md,
+	},
+	sectionBlock: {
+		marginBottom: spacing.md,
+	},
+	softPanel: {
+		backgroundColor: 'rgba(255,255,255,0.85)',
+		borderRadius: borderRadius.xxl,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17, 17, 17, 0.05)',
+	},
+	gradientCardShadow: {
+		...Platform.select({
+			ios: {
+				shadowColor: colors.ink,
+				shadowOffset: { width: 0, height: 10 },
+				shadowOpacity: 0.07,
+				shadowRadius: 22,
+			},
+			android: {
+				elevation: 5,
+			},
+			default: {},
+		}),
 	},
 
 	/* ── Section headers (reused in Aspects, Heatmap, Trends) ── */
@@ -31,6 +59,15 @@ export const analyticsStyles = StyleSheet.create({
 		color: colors.textSecondary,
 		marginTop: 2,
 	},
+	sectionEyebrow: {
+		...textStyles.caption,
+		fontSize: 10,
+		fontWeight: '700',
+		letterSpacing: 1.2,
+		textTransform: 'uppercase',
+		color: colors.primary,
+		marginBottom: 3,
+	},
 
 	/* ── Insight-style card headers (AI Insights, Strengths, Badges, Report) ── */
 	insightHeader: {
@@ -40,13 +77,13 @@ export const analyticsStyles = StyleSheet.create({
 		marginBottom: spacing.md,
 	},
 	insightIconWrap: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
+		width: 46,
+		height: 46,
+		borderRadius: 23,
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: 'rgba(124, 106, 232, 0.22)',
+		borderColor: 'rgba(124, 106, 232, 0.18)',
 	},
 	insightHeaderText: {
 		flex: 1,
@@ -58,6 +95,7 @@ export const analyticsStyles = StyleSheet.create({
 		fontWeight: '800',
 		color: colors.ink,
 		marginBottom: 4,
+		letterSpacing: -0.2,
 	},
 	insightSubtitle: {
 		...textStyles.caption,
@@ -68,7 +106,6 @@ export const analyticsStyles = StyleSheet.create({
 
 	/* ── Uniform card spacing ── */
 	cardMargin: {
-		marginHorizontal: spacing.lg,
 		marginBottom: spacing.sm,
 	},
 });

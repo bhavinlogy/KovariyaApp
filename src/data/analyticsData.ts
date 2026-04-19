@@ -1,5 +1,11 @@
 import { colors } from '../theme';
-import { DASHBOARD_RATING_ASPECTS, type RatingAspectDefinition } from './aspectRating';
+import { DASHBOARD_RATING_ASPECTS } from './aspectRating';
+import {
+  REASON_CHIPS_NEGATIVE,
+  REASON_CHIPS_POSITIVE,
+  type ReasonChipDef,
+} from './aspectRating';
+import type { Goal } from '../types';
 
 /* ─── Helper ─── */
 function clamp(n: number, min: number, max: number): number {
@@ -235,14 +241,287 @@ export type SummaryCounters = {
   streak: number;
 };
 
-const COUNTERS_BY_CHILD: Record<string, SummaryCounters> = {
-  '1': { totalLogs: 88, activeDays: 14, totalEntries: 30, streak: 8 },
-  '2': { totalLogs: 42, activeDays: 8, totalEntries: 18, streak: 3 },
-  '3': { totalLogs: 124, activeDays: 21, totalEntries: 45, streak: 14 },
+export type SummaryPeriod = 'weekly' | 'monthly';
+
+const COUNTERS_BY_CHILD: Record<string, Record<SummaryPeriod, SummaryCounters>> = {
+  '1': {
+    weekly: { totalLogs: 22, activeDays: 6, totalEntries: 9, streak: 8 },
+    monthly: { totalLogs: 88, activeDays: 14, totalEntries: 30, streak: 8 },
+  },
+  '2': {
+    weekly: { totalLogs: 11, activeDays: 4, totalEntries: 5, streak: 3 },
+    monthly: { totalLogs: 42, activeDays: 8, totalEntries: 18, streak: 3 },
+  },
+  '3': {
+    weekly: { totalLogs: 31, activeDays: 7, totalEntries: 12, streak: 14 },
+    monthly: { totalLogs: 124, activeDays: 21, totalEntries: 45, streak: 14 },
+  },
 };
 
-export function getSummaryCounters(childId: string): SummaryCounters {
-  return COUNTERS_BY_CHILD[childId] ?? COUNTERS_BY_CHILD['1'];
+export function getSummaryCounters(
+  childId: string,
+  period: SummaryPeriod = 'weekly'
+): SummaryCounters {
+  const childCounters = COUNTERS_BY_CHILD[childId] ?? COUNTERS_BY_CHILD['1'];
+  return childCounters[period];
+}
+
+export type MonthlyReportChip = {
+  label: string;
+  count: number;
+  kind: 'positive' | 'negative';
+};
+
+export type MonthlyReportAspect = {
+  id: string;
+  name: string;
+  score: number;
+  trend: number;
+  iconName: string;
+  accent: string;
+};
+
+export type MonthlyPdfReport = {
+  monthLabel: string;
+  childLabel: string;
+  metrics: {
+    bsi: number;
+    familyScore: number;
+    trust: number;
+    parentConsistency: number;
+  };
+  aspects: MonthlyReportAspect[];
+  positiveChips: MonthlyReportChip[];
+  negativeChips: MonthlyReportChip[];
+  dbsSummary: {
+    activeDays: number;
+    averageScore: number;
+    bestDay: string;
+    needsAttentionDay: string;
+  };
+  totals: {
+    loggedData: number;
+    parentEntries: number;
+  };
+  goalProgress: {
+    title: string;
+    reward: string;
+    target: number;
+    current: number;
+    eligibilityText: string;
+    explanation: string;
+  };
+  guidance: string[];
+  nextMonthFocus: string[];
+};
+
+export type GoalDailyLog = {
+  date: string;
+  positiveChip?: string;
+  negativeChip?: string;
+  pointsDelta: number;
+  note: string;
+};
+
+export type GoalWiseReport = {
+  goalName: string;
+  target: number;
+  reward: string;
+  duration: string;
+  dailyLogs: GoalDailyLog[];
+  positiveChips: MonthlyReportChip[];
+  negativeChips: MonthlyReportChip[];
+  achievedScore: number;
+  rewardAchieved: boolean;
+  finalResult: string;
+  reasonExplanation: string;
+  improvementNote: string;
+};
+
+const GOALS_BY_CHILD: Record<string, Goal[]> = {
+  '1': [
+    {
+      id: 'g1',
+      title: 'Morning routine streak',
+      description: 'Complete the morning checklist before school each day.',
+      currentRawPoints: 172,
+      targetRawPoints: 200,
+      startDate: '2026-04-01',
+      endDate: '2026-04-30',
+      rewardName: 'Movie night',
+      rewardValue: '$25 voucher',
+      status: 'active',
+    },
+  ],
+  '2': [
+    {
+      id: 'g2',
+      title: 'Homework before play',
+      description: 'Finish homework before recreational screen time.',
+      currentRawPoints: 68,
+      targetRawPoints: 100,
+      startDate: '2026-04-01',
+      endDate: '2026-04-30',
+      rewardName: 'New art supplies',
+      status: 'active',
+    },
+  ],
+  '3': [
+    {
+      id: 'g3',
+      title: 'Kind words challenge',
+      description: 'Log kind actions toward family members.',
+      currentRawPoints: 158,
+      targetRawPoints: 150,
+      startDate: '2026-04-01',
+      endDate: '2026-04-30',
+      rewardName: 'Choose weekend activity',
+      status: 'completed',
+    },
+  ],
+};
+
+function formatReward(goal: Goal): string {
+  if (goal.rewardValue?.trim()) {
+    return `${goal.rewardName} (${goal.rewardValue.trim()})`;
+  }
+  return goal.rewardName;
+}
+
+function buildChipCounts(
+  childId: string,
+  chips: ReasonChipDef[],
+  kind: 'positive' | 'negative'
+): MonthlyReportChip[] {
+  return chips
+    .map((chip, index) => ({
+      label: chip.label,
+      count: 1 + (hash(`${childId}:${kind}:${index}`) % 6),
+      kind,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+}
+
+export function getGoalsForChild(childId: string): Goal[] {
+  return GOALS_BY_CHILD[childId] ?? GOALS_BY_CHILD['1'];
+}
+
+export function getMonthlyPdfReport(childId: string, year: number, month: number): MonthlyPdfReport {
+  const monthLabel = new Date(year, month, 1).toLocaleString('en-US', {
+    month: 'long',
+    year: 'numeric',
+  });
+  const bsi = getSdsAnalytics(childId);
+  const family = getFamilyScore(childId);
+  const trust = getTrustMeter(childId);
+  const parentConsistency = getParentConsistency(childId);
+  const aspects = getAspectScores(childId).map((aspect) => ({
+    id: aspect.id,
+    name: aspect.name,
+    score: aspect.score,
+    trend: aspect.change,
+    iconName: aspect.iconName,
+    accent: aspect.accent,
+  }));
+  const positiveChips = buildChipCounts(childId, REASON_CHIPS_POSITIVE, 'positive');
+  const negativeChips = buildChipCounts(childId, REASON_CHIPS_NEGATIVE, 'negative');
+  const dbs = getDailyBehaviourScores(childId, year, month).filter((item) => item.score !== null);
+  const activeDays = dbs.length;
+  const averageScore = activeDays
+    ? Math.round(dbs.reduce((sum, item) => sum + (item.score ?? 0), 0) / activeDays)
+    : 0;
+  const bestEntry = [...dbs].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+  const lowEntry = [...dbs].sort((a, b) => (a.score ?? 0) - (b.score ?? 0))[0];
+  const counters = getSummaryCounters(childId, 'monthly');
+  const goal = getGoalsForChild(childId)[0];
+  const eligible = goal.currentRawPoints >= goal.targetRawPoints && negativeChips[0].count < 5;
+  const strengthsWeaknesses = getStrengthsWeaknesses(childId);
+  const guidance = getGuidance(childId).map((item) => `${item.title}: ${item.message}`).slice(0, 3);
+
+  return {
+    monthLabel,
+    childLabel: `Child ID ${childId}`,
+    metrics: {
+      bsi: bsi.percent,
+      familyScore: family.score,
+      trust: trust.level,
+      parentConsistency: parentConsistency.score,
+    },
+    aspects,
+    positiveChips,
+    negativeChips,
+    dbsSummary: {
+      activeDays,
+      averageScore,
+      bestDay: bestEntry?.date ?? 'No data',
+      needsAttentionDay: lowEntry?.date ?? 'No data',
+    },
+    totals: {
+      loggedData: counters.totalLogs,
+      parentEntries: counters.totalEntries,
+    },
+    goalProgress: {
+      title: goal.title,
+      reward: formatReward(goal),
+      target: goal.targetRawPoints,
+      current: goal.currentRawPoints,
+      eligibilityText: eligible ? 'Reward likely achieved' : 'Reward not yet achieved',
+      explanation: eligible
+        ? 'Target raw points were met and negative behaviour frequency stayed within the acceptable range.'
+        : 'Reward eligibility dropped because raw points stayed below target or repeated negative chips reduced consistency this month.',
+    },
+    guidance,
+    nextMonthFocus: [
+      `Keep building ${strengthsWeaknesses.strengths[0]?.name ?? 'consistent routines'} through daily praise.`,
+      `Reduce ${strengthsWeaknesses.weakAreas[0]?.name ?? 'low-score behaviours'} with one clear home routine.`,
+      'Review reward criteria weekly so the child knows what keeps eligibility on track.',
+    ],
+  };
+}
+
+export function getGoalWiseReport(childId: string): GoalWiseReport {
+  const goal = getGoalsForChild(childId)[0];
+  const negativePool = buildChipCounts(childId, REASON_CHIPS_NEGATIVE, 'negative');
+  const positivePool = buildChipCounts(childId, REASON_CHIPS_POSITIVE, 'positive');
+  const dailyLogs: GoalDailyLog[] = Array.from({ length: 7 }, (_, index) => {
+    const day = index + 1;
+    const negative = index === 2 || index === 5 ? negativePool[index % negativePool.length]?.label : undefined;
+    const positive = negative ? undefined : positivePool[index % positivePool.length]?.label;
+    return {
+      date: `2026-04-${String(day + 7).padStart(2, '0')}`,
+      positiveChip: positive,
+      negativeChip: negative,
+      pointsDelta: negative ? -4 + (index % 2) : 8 + (index % 3),
+      note: negative
+        ? 'Negative behaviour affected reward eligibility on this day.'
+        : 'Positive behaviour supported progress toward the reward.',
+    };
+  });
+  const achievedScore = goal.currentRawPoints;
+  const rewardAchieved = achievedScore >= goal.targetRawPoints;
+  const negativeDates = dailyLogs
+    .filter((log) => log.negativeChip)
+    .map((log) => `${log.negativeChip} on ${log.date}`);
+
+  return {
+    goalName: goal.title,
+    target: goal.targetRawPoints,
+    reward: formatReward(goal),
+    duration: `${goal.startDate} to ${goal.endDate}`,
+    dailyLogs,
+    positiveChips: positivePool.slice(0, 4),
+    negativeChips: negativePool.slice(0, 4),
+    achievedScore,
+    rewardAchieved,
+    finalResult: rewardAchieved ? 'Reward achieved' : 'Reward not achieved',
+    reasonExplanation: rewardAchieved
+      ? 'The child stayed on target across the goal period and positive chips outweighed negative incidents.'
+      : `Reward not achieved because these negative behaviours were logged during the goal period: ${negativeDates.join(', ')}.`,
+    improvementNote: rewardAchieved
+      ? 'For the next goal, raise the target slightly and keep reinforcing the strongest positive habits.'
+      : 'Next attempt: set one daily check-in, reward early positive momentum, and intervene quickly on repeated negative chips.',
+  };
 }
 
 /* ─── AI Guidance ─── */

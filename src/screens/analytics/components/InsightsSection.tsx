@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Card } from '../../../components';
 import { colors, spacing, textStyles, borderRadius } from '../../../theme';
@@ -265,8 +266,14 @@ export default React.memo(InsightsSection);
 /* ═══════════════════════════════════════════════════════════════════ */
 const s = StyleSheet.create({
 	insightCard: {
-		marginHorizontal: spacing.lg,
 		marginBottom: spacing.sm,
+		backgroundColor: 'rgba(255,255,255,0.96)',
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17,17,17,0.05)',
+	},
+	topGradient: {
+		borderRadius: borderRadius.xl,
+		padding: 0,
 	},
 
 	/* Guidance items */
@@ -275,14 +282,14 @@ const s = StyleSheet.create({
 		alignItems: 'flex-start',
 		gap: spacing.sm,
 		padding: spacing.md,
-		borderRadius: borderRadius.large,
+		borderRadius: borderRadius.xl,
 		borderWidth: StyleSheet.hairlineWidth,
 		marginBottom: spacing.sm,
 	},
 	guidanceItemIcon: {
-		width: 36,
-		height: 36,
-		borderRadius: 18,
+		width: 38,
+		height: 38,
+		borderRadius: 19,
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderWidth: StyleSheet.hairlineWidth,
@@ -358,8 +365,10 @@ const s = StyleSheet.create({
 
 	/* Badges */
 	badgesCard: {
-		marginHorizontal: spacing.lg,
 		marginBottom: spacing.sm,
+		backgroundColor: 'rgba(255,255,255,0.96)',
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: 'rgba(17,17,17,0.05)',
 	},
 	badgesGrid: {
 		flexDirection: 'row',
@@ -368,20 +377,22 @@ const s = StyleSheet.create({
 	},
 	badgeTile: {
 		width: '47%',
-		backgroundColor: colors.surface,
-		borderRadius: borderRadius.large,
+		backgroundColor: '#FDFCFF',
+		borderRadius: borderRadius.xl,
 		padding: spacing.md,
 		alignItems: 'center',
 		borderWidth: StyleSheet.hairlineWidth,
-		borderColor: colors.border,
+		borderColor: 'rgba(124,106,232,0.10)',
 	},
 	badgeTileLocked: {
-		opacity: 0.5,
+		opacity: 0.45,
+		backgroundColor: colors.surfaceMuted,
+		borderColor: 'rgba(17,17,17,0.06)',
 	},
 	badgeIconCircle: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
+		width: 48,
+		height: 48,
+		borderRadius: 24,
 		alignItems: 'center',
 		justifyContent: 'center',
 		borderWidth: StyleSheet.hairlineWidth,
@@ -394,6 +405,7 @@ const s = StyleSheet.create({
 		color: colors.ink,
 		textAlign: 'center',
 		marginBottom: 3,
+		letterSpacing: -0.1,
 	},
 	badgeLabelLocked: {
 		color: colors.textMuted,
@@ -409,11 +421,13 @@ const s = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 3,
-		marginTop: spacing.xs,
-		paddingHorizontal: spacing.sm,
-		paddingVertical: 2,
+		marginTop: spacing.sm,
+		paddingHorizontal: spacing.md,
+		paddingVertical: 3,
 		borderRadius: borderRadius.full,
 		backgroundColor: colors.surfaceMuted,
+		borderWidth: StyleSheet.hairlineWidth,
+		borderColor: colors.border,
 	},
 	lockedChipText: {
 		fontSize: 9,
