@@ -27,8 +27,9 @@ import { GRADIENT_60_END } from '../theme/layout';
 import { Child } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { formatAppMonthYear } from '../utils/dateFormat';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { setStatusBarStyle } from 'expo-status-bar';
+import {runOnJS} from 'react-native-worklets';
 
 type SettingId =
   | 'notifications'
@@ -175,6 +176,7 @@ const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [childrenList, setChildrenList] = useState<Child[]>(INITIAL_CHILDREN);
   const [addChildVisible, setAddChildVisible] = useState(false);
+  const [animating, setAnimating] = useState(true);
 
   const parentInfo = {
     name: user?.name || 'Wellness User',
@@ -188,9 +190,18 @@ const ProfileScreen: React.FC = () => {
     [insets.bottom]
   );
 
-  const handleSettingPress = useCallback((_id: SettingId) => {
-    // Wire navigation or modals when implemented
-  }, []);
+  const navigation = useNavigation<any>();
+
+  const handleSettingPress = useCallback((id: SettingId) => {
+    const routes: Record<SettingId, string> = {
+      notifications: 'NotificationSettings',
+      privacy: 'PrivacySecurity',
+      help: 'HelpSupport',
+      feedback: 'SendFeedback',
+      about: 'About',
+    };
+    navigation.navigate(routes[id]);
+  }, [navigation]);
 
   const onChildAdded = useCallback((child: Child) => {
     setChildrenList((prev) => [child, ...prev]);
@@ -272,8 +283,18 @@ const ProfileScreen: React.FC = () => {
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(100).springify().damping(18).stiffness(220)}>
-          <Card variant="elevated" style={styles.childrenCard}>
+        <Animated.View 
+			entering={FadeInDown
+				.delay(100)
+				.springify().
+				damping(18)
+				.stiffness(220)
+				.withCallback((finished) => {
+					if (finished) runOnJS(setAnimating)(false);
+				})} 
+			//style={[styles.shadowWrapper]}  // ← shadow lives HERE, animates together
+		>
+          <Card variant={animating ? "default" : "elevated"} style={styles.childrenCard}>
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionEyebrow}>Family</Text>
@@ -559,6 +580,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
   },
+  shadowWrapper: {
+	// Move all shadow styles here from the card
+	shadowColor: '#000',
+	shadowOffset: { width: 0, height: 2 },
+	shadowOpacity: 0.15,
+	shadowRadius: 6,
+	...Platform.select({
+      ios: {
+        shadowColor: colors.ink,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+      },
+      android: { elevation: 4 },
+      default: {},
+    }),
+	borderRadius: 12, // match card's radius
+	},
   childrenCard: {
     marginVertical: spacing.xs,
   },

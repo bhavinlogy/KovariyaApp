@@ -255,16 +255,7 @@ export function OnboardingScreen1({ navigation }: Props) {
                     value={mobile}
                     onChangeText={setMobile}
                     maxLength={10}
-                    leftIcon={
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Pressable style={styles.ccChip} onPress={() => setShowCCPicker(!showCCPicker)}>
-                          <Text style={styles.ccFlag}>{countryCode.flag}</Text>
-                          <Text style={styles.ccCode}>{countryCode.code}</Text>
-                          <Icon name="arrow-drop-down" size={18} color={colors.textSecondary} />
-                        </Pressable>
-                        <View style={styles.divider} />
-                      </View>
-                    }
+					leftIcon={<Icon name="phone" size={20} color={colors.textMuted} />}
                   />
                   {showCCPicker && (
                     <Animated.View entering={FadeInDown.duration(200)} style={styles.ccDropdown}>

@@ -7,3 +7,8 @@ export { default as QuizzesScreen } from './QuizzesScreen';
 export { default as RatingScreen } from './RatingScreen';
 export { default as MissionsScreen } from './MissionsScreen';
 export { default as MissionDetailScreen } from './MissionDetailScreen';
+export { default as NotificationSettingsScreen } from './NotificationSettingsScreen';
+export { default as PrivacySecurityScreen } from './PrivacySecurityScreen';
+export { default as HelpSupportScreen } from './HelpSupportScreen';
+export { default as SendFeedbackScreen } from './SendFeedbackScreen';
+export { default as AboutScreen } from './AboutScreen';
