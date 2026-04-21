@@ -33,7 +33,7 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 	const gauges = [
 		{
 			value: fs.score,
-			label: 'Family Score',
+			label: 'FS',
 			sublabel: fs.subtitle,
 			delay: 100,
 			trendIcon: fs.trend >= 0 ? 'trending-up' : 'trending-down',
@@ -57,7 +57,7 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 		},
 		{
 			value: pc.score,
-			label: 'Consistency',
+			label: 'PCS',
 			sublabel: pc.subtitle,
 			delay: 300,
 			trendIcon: pc.trend >= 0 ? 'trending-up' : 'trending-down',
@@ -97,7 +97,7 @@ const SupportGauges: React.FC<SupportGaugesProps> = ({
 							<Text style={[s.kpiLabel, g.labelColor ? { color: g.labelColor } : undefined]}>
 								{g.label}
 							</Text>
-							<Text style={s.kpiSublabel} numberOfLines={1}>{g.sublabel}</Text>
+							<Text style={s.kpiSublabel} numberOfLines={2}>{g.sublabel}</Text>
 							<View style={[s.kpiTrendPill, { backgroundColor: `${g.trendColor}12` }]}>
 								{g.label != 'Trust Meter' && <Text style={[s.kpiTrendText, { color: g.trendColor }]}>This Week</Text>}
 								<Icon name={g.trendIcon} size={11} color={g.trendColor} />
@@ -164,18 +164,20 @@ const s = StyleSheet.create({
 		position: 'absolute',
 		top: spacing.md + 3 + 28,
 		alignItems: 'center',
+		marginBottom: 10
 	},
 	kpiValue: {
 		fontSize: 18,
 		fontWeight: '800',
 		letterSpacing: -0.5,
+		marginBottom: 5
 	},
 	kpiLabel: {
 		...textStyles.caption,
 		fontWeight: '800',
 		color: colors.ink,
 		textAlign: 'center',
-		marginTop: -2,
+		marginTop: 2,
 		fontSize: 11,
 		letterSpacing: -0.1,
 	},

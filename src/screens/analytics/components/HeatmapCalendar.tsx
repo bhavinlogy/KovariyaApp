@@ -31,8 +31,8 @@ const MONTH_NAMES = [
 const LEGEND_ITEMS = [
 	{ label: 'Needs Effort', color: '#E87070' },
 	{ label: 'Average', color: '#E8A04A' },
-	{ label: 'Consistent', color: '#2E8B57' },
-	{ label: 'Excellent', color: '#7BCF7B' },
+	{ label: 'Consistent', color: '#7BCF7B' },
+	{ label: 'Excellent', color: '#2E8B57' },
 ];
 
 /* ═══════════════════════════════════════════════════════════════════ */
@@ -74,11 +74,11 @@ const HeatmapCalendar: React.FC<HeatmapCalendarProps> = ({
 				<View style={s.heatmapHeader}>
 					<View style={s.heatmapHeaderLeft}>
 						<View style={s.heatmapIconWrap}>
-							<Icon name="grid-view" size={16} color={colors.primary} />
+							<Icon name="calendar-month" size={16} color={colors.primary} />
 						</View>
 						<View>
-							{/* <Text style={shared.sectionEyebrow}>Daily rhythm</Text> */}
-							<Text style={s.sectionTitle}>Aspect Scores</Text>
+							<Text style={shared.sectionEyebrow}>Daily Behaviour Score</Text>
+							<Text style={s.sectionTitle}>DBS Heatmap</Text>
 						</View>
 					</View>
 					<View style={s.heatmapNavWrap}>

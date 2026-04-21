@@ -53,9 +53,9 @@ export type FamilyScoreData = {
 };
 
 const FS_BY_CHILD: Record<string, FamilyScoreData> = {
-  '1': { score: 84, trend: 4, subtitle: 'Parental Involvement' },
-  '2': { score: 72, trend: -2, subtitle: 'Parental Involvement' },
-  '3': { score: 91, trend: 6, subtitle: 'Parental Involvement' },
+  '1': { score: 84, trend: 4, subtitle: 'Family Score' },
+  '2': { score: 72, trend: -2, subtitle: 'Family Score' },
+  '3': { score: 91, trend: 6, subtitle: 'Family Score' },
 };
 
 export function getFamilyScore(childId: string): FamilyScoreData {
@@ -71,9 +71,9 @@ export type TrustMeterData = {
 };
 
 const TRUST_BY_CHILD: Record<string, TrustMeterData> = {
-  '1': { level: 72, label: 'Reliable', trend: 0, subtitle: 'Trustworthy Behavior' },
-  '2': { level: 54, label: 'Building', trend: -3, subtitle: 'Trustworthy Behavior' },
-  '3': { level: 88, label: 'Trusted', trend: 7, subtitle: 'Trustworthy Behavior' },
+  '1': { level: 72, label: 'Reliable', trend: 0, subtitle: 'Behaviour Reliability' },
+  '2': { level: 54, label: 'Building', trend: -3, subtitle: 'Behaviour Reliability' },
+  '3': { level: 88, label: 'Trusted', trend: 7, subtitle: 'Behaviour Reliability' },
 };
 
 export function getTrustMeter(childId: string): TrustMeterData {
@@ -88,9 +88,9 @@ export type ParentConsistencyData = {
 };
 
 const PC_BY_CHILD: Record<string, ParentConsistencyData> = {
-  '1': { score: 85, trend: 3, subtitle: 'Tracking Accuracy' },
-  '2': { score: 68, trend: -5, subtitle: 'Tracking Accuracy' },
-  '3': { score: 92, trend: 4, subtitle: 'Tracking Accuracy' },
+  '1': { score: 85, trend: 3, subtitle: 'Parent consistency score' },
+  '2': { score: 68, trend: -5, subtitle: 'Parent consistency score' },
+  '3': { score: 92, trend: 4, subtitle: 'Parent consistency score' },
 };
 
 export function getParentConsistency(childId: string): ParentConsistencyData {

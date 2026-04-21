@@ -31,10 +31,15 @@ const AspectScoreGrid: React.FC<AspectScoreGridProps> = ({ aspects }) => {
 				{/* Header with toggle */}
 				<View style={s.sectionHeaderRow}>
 					<View style={s.headerLeft}>
-						<Text style={s.sectionTitle}>Aspect Scores</Text>
-						<Text style={s.sectionSubtitle}>
-							{period === 'weekly' ? "This week's breakdown" : "This month's breakdown"}
-						</Text>
+						<View style={s.sectionIconWrap}>
+							<Icon name="grid-view" size={16} color={colors.primary} />
+						</View>
+						<View>
+							<Text style={s.sectionTitle}>Aspect Scores</Text>
+							<Text style={s.sectionSubtitle}>
+								{period === 'weekly' ? "This week's breakdown" : "This month's breakdown"}
+							</Text>
+						</View>
 					</View>
 					<View style={s.toggle}>
 						<Pressable
@@ -90,9 +95,12 @@ const AspectScoreGrid: React.FC<AspectScoreGridProps> = ({ aspects }) => {
 					{row2.map((aspect, idx) => (
 						<View key={aspect.id} style={s.aspectCol}>
 							{idx > 0 && <View style={s.colDivider} />}
-							<AspectTile aspect={aspect} animDelay={(3 + idx) * 80} />
+							<AspectTile aspect={aspect} animDelay={(idx) * 80} />
 						</View>
 					))}
+					<View style={s.aspectCol}>
+						<View style={s.colDivider} />
+					</View>
 				</View>
 			</View>
 		</Animated.View>
@@ -197,6 +205,18 @@ const s = StyleSheet.create({
 	headerLeft: {
 		flex: 1,
 		marginRight: spacing.sm,
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: spacing.sm,
+	},
+	sectionIconWrap: {
+		width: 34,
+		height: 34,
+		borderRadius: 17,
+		backgroundColor: 'rgba(124,106,232,0.08)',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginTop: 2,
 	},
 	sectionTitle: {
 		...textStyles.headingMedium,
@@ -253,7 +273,7 @@ const s = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		gap:6
+		gap: 6
 	},
 	aspectCol: {
 		flex: 1,

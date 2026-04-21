@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -29,7 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { formatAppMonthYear } from '../utils/dateFormat';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { setStatusBarStyle } from 'expo-status-bar';
-import {runOnJS} from 'react-native-worklets';
+import { runOnJS } from 'react-native-worklets';
 
 type SettingId =
   | 'notifications'
@@ -176,7 +176,6 @@ const ProfileScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const [childrenList, setChildrenList] = useState<Child[]>(INITIAL_CHILDREN);
   const [addChildVisible, setAddChildVisible] = useState(false);
-  const [animating, setAnimating] = useState(true);
 
   const parentInfo = {
     name: user?.name || 'Wellness User',
@@ -233,8 +232,13 @@ const ProfileScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollBottomPad }]}
       >
-        <Animated.View entering={FadeInDown.springify().damping(18).stiffness(220)}>
-          <Card variant="elevated" style={styles.profileCard} padding={0}>
+        <Animated.View entering={FadeInDown
+          .springify()
+          .damping(18)
+          .stiffness(220)}
+          style={[styles.shadowWrapper]} // ← shadow lives HERE, animates together
+        >
+          <Card variant="default" style={styles.profileCard} padding={0}>
             <LinearGradient
               colors={[colors.primary, colors.primaryDark]}
               start={{ x: 0, y: 0 }}
@@ -283,18 +287,15 @@ const ProfileScreen: React.FC = () => {
           </Card>
         </Animated.View>
 
-        <Animated.View 
-			entering={FadeInDown
-				.delay(100)
-				.springify().
-				damping(18)
-				.stiffness(220)
-				.withCallback((finished) => {
-					if (finished) runOnJS(setAnimating)(false);
-				})} 
-			//style={[styles.shadowWrapper]}  // ← shadow lives HERE, animates together
-		>
-          <Card variant={animating ? "default" : "elevated"} style={styles.childrenCard}>
+        <Animated.View
+          entering={FadeInDown
+            .delay(100)
+            .springify()
+            .damping(18)
+            .stiffness(220)}
+          style={[styles.shadowWrapper]}  // ← shadow lives HERE, animates together
+        >
+          <Card variant="default" style={styles.childrenCard}>
             <View style={styles.sectionHeaderRow}>
               <View>
                 <Text style={styles.sectionEyebrow}>Family</Text>
@@ -345,8 +346,15 @@ const ProfileScreen: React.FC = () => {
           </Card>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(140).springify().damping(18).stiffness(220)}>
-          <Card variant="elevated" style={styles.settingsCard}>
+        <Animated.View
+          entering={FadeInDown
+            .delay(140)
+            .springify()
+            .damping(18)
+            .stiffness(220)}
+          style={[styles.shadowWrapper]}  // ← shadow lives HERE, animates together
+        >
+          <Card variant="default" style={styles.settingsCard}>
             <Text style={styles.sectionEyebrow}>App</Text>
             <Text style={[styles.sectionTitle, styles.settingsTitleSpacing]}>Settings</Text>
             {SETTINGS_ROWS.map((option, index) => (
@@ -581,23 +589,23 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   shadowWrapper: {
-	// Move all shadow styles here from the card
-	shadowColor: '#000',
-	shadowOffset: { width: 0, height: 2 },
-	shadowOpacity: 0.15,
-	shadowRadius: 6,
-	...Platform.select({
+    borderRadius: borderRadius.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...Platform.select({
       ios: {
         shadowColor: colors.ink,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.07,
+        shadowRadius: 8,
       },
-      android: { elevation: 4 },
+      android: { elevation: 2 },
       default: {},
     }),
-	borderRadius: 12, // match card's radius
-	},
+    backgroundColor: colors.surface,
+    marginVertical: spacing.xs,
+  },
   childrenCard: {
     marginVertical: spacing.xs,
   },

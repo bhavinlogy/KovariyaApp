@@ -724,7 +724,7 @@ const DashboardScreen: React.FC = () => {
         onVoiceNotePress={handleVoiceNotePlaceholder}
       />
 
-      
+
     </SafeAreaView>
   );
 };
