@@ -80,7 +80,8 @@ export function OnboardingScreen2({ navigation }: Props) {
 		opacity: interpolate(Math.abs(screenX.value), [0, SW], [1, 0]),
 	}));
 
-	const isFormValid = fullName.trim().length > 0 && selectedRole !== null;
+	const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+	const isFormValid = fullName.trim().length > 0 && selectedRole !== null && emailRegex.test(email.trim());
 
 	const goNext = () => {
 		if (!isFormValid || isLoading) return;
@@ -93,7 +94,7 @@ export function OnboardingScreen2({ navigation }: Props) {
 				screenX.value = 0;
 			});
 			navigation.navigate('Onboarding3');
-		}, 1500);
+		}, 500);
 	};
 
 	const goBack = () => {
@@ -167,7 +168,7 @@ export function OnboardingScreen2({ navigation }: Props) {
 								<InputField
 									label={
 										<Text style={styles.label}>
-											Email <Text style={styles.optionalText}>(optional)</Text>
+											Email
 										</Text>
 									}
 									value={email}

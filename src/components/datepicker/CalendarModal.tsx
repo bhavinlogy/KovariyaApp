@@ -166,20 +166,20 @@ export default function CalendarModal({
 
 			}
 
-			// const significantSwipe =
-			// 	Math.abs(e.translationX) > SWIPE_DISTANCE_THRESHOLD ||
-			// 	Math.abs(e.velocityX) > SWIPE_VELOCITY_THRESHOLD;
+			const significantSwipe =
+				Math.abs(e.translationX) > SWIPE_DISTANCE_THRESHOLD ||
+				Math.abs(e.velocityX) > SWIPE_VELOCITY_THRESHOLD;
 
-			// if (significantSwipe) {
-			// 	// swipe left → next month (+1), swipe right → prev month (-1)
-			// 	const direction = e.translationX < 0 ? 1 : -1;
-			// 	runOnJS(changeMonthBy)(direction);
-			// }
+			if (significantSwipe) {
+				// swipe left → next month (+1), swipe right → prev month (-1)
+				const direction = e.translationX < 0 ? 1 : -1;
+				runOnJS(changeMonthBy)(direction);
+			}
 
-			// swipeX.value = withSpring(0, {
-			// 	damping: 20,
-			// 	stiffness: 300,
-			// });
+			swipeX.value = withSpring(0, {
+				damping: 20,
+				stiffness: 300,
+			});
 			isSwipeActive.value = false;
 		});
 

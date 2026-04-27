@@ -173,7 +173,7 @@ export function OnboardingScreen1({ navigation }: Props) {
       otpX.value = SW;
       setShowOtp(false);
       setOtp('');
-    }, 500);
+    }, 300);
   };
 
   const handleOtpChange = (text: string) => {
@@ -223,17 +223,6 @@ export function OnboardingScreen1({ navigation }: Props) {
             {/* Main Form */}
             <Animated.View style={[styles.formBlock, mainStyle]}>
               {/* Tab Toggle */}
-              <Animated.View entering={FadeInDown.duration(400).delay(200)} style={styles.tabContainer}>
-                <View style={styles.tabTrack}>
-                  <View style={[styles.tabPill, { left: tab === 'school' ? '0%' : '50%' }]} />
-                  <Pressable style={styles.tabBtn} onPress={() => switchTab('school')}>
-                    <Text style={[styles.tabText, tab === 'school' && styles.tabTextActive]}>Via School</Text>
-                  </Pressable>
-                  <Pressable style={styles.tabBtn} onPress={() => switchTab('direct')}>
-                    <Text style={[styles.tabText, tab === 'direct' && styles.tabTextActive]}>Direct Join</Text>
-                  </Pressable>
-                </View>
-              </Animated.View>
 
               <Animated.View entering={FadeInDown.duration(400).delay(300)} style={styles.fields}>
                 {/* School ID / Code */}
@@ -255,7 +244,7 @@ export function OnboardingScreen1({ navigation }: Props) {
                     value={mobile}
                     onChangeText={setMobile}
                     maxLength={10}
-					leftIcon={<Icon name="phone" size={20} color={colors.textMuted} />}
+                    leftIcon={<Icon name="phone" size={20} color={colors.textMuted} />}
                   />
                   {showCCPicker && (
                     <Animated.View entering={FadeInDown.duration(200)} style={styles.ccDropdown}>
